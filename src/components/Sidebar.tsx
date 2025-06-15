@@ -1,17 +1,18 @@
 
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Home, Book, Image as ImageIcon, Sparkles, Settings, Users, MessageSquare } from "lucide-react";
+import { Home, Book, Image as ImageIcon, Sparkles, Settings, Users, MessageSquare, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [recentConversations, setRecentConversations] = useState<Pick<Tables<'teaching_resources'>, 'id' | 'title'>[]>([]);
 
   useEffect(() => {
@@ -109,7 +110,32 @@ const Sidebar = () => {
       </nav>
       <div className="border-t -mx-6 my-4"></div>
       <div>
-        <NavItem to="/settings" icon={Settings} label="设置" />
+        {user ? (
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              cn(
+                "flex items-center w-full px-4 py-3 text-base rounded-lg transition-colors",
+                isActive
+                  ? "bg-muted"
+                  : "hover:bg-muted"
+              )
+            }
+          >
+            <Avatar className="h-9 w-9 mr-4 flex-shrink-0">
+              <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || user.email || '用户头像'} />
+              <AvatarFallback>
+                {profile?.full_name ? profile.full_name[0].toUpperCase() : (user.email ? user.email[0].toUpperCase() : <UserIcon size={16} />)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col truncate">
+              <span className="font-medium text-foreground truncate">{profile?.full_name || user.email}</span>
+              <span className="text-sm text-muted-foreground">个人设置</span>
+            </div>
+          </NavLink>
+        ) : (
+          <NavItem to="/settings" icon={Settings} label="设置" />
+        )}
       </div>
     </aside>
   );

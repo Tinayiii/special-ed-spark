@@ -7,11 +7,12 @@ import { Tables } from '@/integrations/supabase/types';
 interface AuthContextType {
     user: User | null;
     session: Session | null;
-    profile: Tables<'profiles'> | null;
+    profile: (Tables<'profiles'> & { full_name?: string; avatar_url?: string; }) | null;
     isLoading: boolean;
     openAuthDialog: () => void;
     isAuthDialogOpen: boolean;
     setIsAuthDialogOpen: (isOpen: boolean) => void;
+    refreshProfile: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -19,7 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
-    const [profile, setProfile] = useState<Tables<'profiles'> | null>(null);
+    const [profile, setProfile] = useState<(Tables<'profiles'> & { full_name?: string; avatar_url?: string; }) | null>(null);
     const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -33,6 +34,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
         }
     };
+    
+    const fetchProfile = async (userId: string) => {
+        const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        setProfile(profileData as any);
+    };
 
     useEffect(() => {
         const fetchSessionAndProfile = async () => {
@@ -41,8 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
             if (currentUser) {
-                const { data: profileData } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-                setProfile(profileData);
+                await fetchProfile(currentUser.id);
             }
             setLoading(false);
         };
@@ -58,9 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 if (_event === 'SIGNED_IN') {
                     await handleUserProfile(currentUser);
                 }
-                // Fetch profile after any change
-                const { data: profileData } = await supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-                setProfile(profileData);
+                await fetchProfile(currentUser.id);
             } else {
                 setProfile(null);
             }
@@ -68,6 +71,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         return () => subscription.unsubscribe();
     }, []);
+
+    const refreshProfile = () => {
+        if (user) {
+            fetchProfile(user.id);
+        }
+    };
 
     const value = {
         user,
@@ -77,6 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         openAuthDialog: () => setIsAuthDialogOpen(true),
         isAuthDialogOpen,
         setIsAuthDialogOpen,
+        refreshProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
