@@ -57,53 +57,99 @@ export const useChatLogic = () => {
         return;
     }
 
+    console.log('开始发送消息:', messageContent);
+    console.log('当前用户:', user?.id);
+    console.log('当前收集信息:', collectedInfo);
+
     const userMessage: Message = { role: 'user', content: messageContent };
     
+    // 立即添加用户消息
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
 
-    const history = newMessages.slice(1).map(({role, content}) => ({role, content}));
+    // 准备发送给AI的历史记录（排除初始欢迎消息）
+    const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
+    
+    console.log('准备发送的历史记录:', chatHistory);
+    console.log('AI函数调用参数:', {
+      message: messageContent,
+      history: chatHistory,
+      collectedInfo: collectedInfo,
+    });
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: { 
           message: messageContent,
-          history: history,
+          history: chatHistory,
           collectedInfo: collectedInfo,
         },
       });
 
-      if (error) throw error;
+      console.log('AI函数返回数据:', data);
+      console.log('AI函数错误:', error);
+
+      if (error) {
+        console.error('Supabase函数调用错误:', error);
+        throw error;
+      }
+
+      if (!data) {
+        console.error('AI函数返回空数据');
+        throw new Error('AI函数返回空数据');
+      }
       
       const { reply, is_complete, collected_info, newly_collected_info, task_ready, intent } = data;
 
+      console.log('AI回复:', reply);
+      console.log('任务状态:', { is_complete, task_ready, intent });
+
       if (reply) {
         addMessage({ role: 'assistant', content: reply });
+      } else {
+        console.warn('AI没有返回回复内容');
+        addMessage({ role: 'assistant', content: '抱歉，我暂时无法理解您的问题，请重新描述一下。' });
       }
 
       let newCollectedInfo = { ...collectedInfo };
       if (newly_collected_info) {
         newCollectedInfo = { ...newCollectedInfo, ...newly_collected_info };
+        console.log('更新收集信息 (新增):', newly_collected_info);
       }
       if (collected_info) {
         newCollectedInfo = { ...collected_info };
+        console.log('更新收集信息 (完整):', collected_info);
       }
       setCollectedInfo(newCollectedInfo);
 
       if (task_ready) {
+        console.log('任务准备就绪，打开画布');
         setCurrentIntent(intent);
         setIsCanvasOpen(true);
       } else if (is_complete) {
-        // Information gathering is complete, AI has prompted for next action.
-        // Waiting for user to specify a task.
+        console.log('信息收集完成，等待用户指定任务');
       }
 
     } catch(err) {
-      console.error("Error calling ai-chat function:", err);
-      addMessage({ role: 'assistant', content: "抱歉，我好像出了一点问题，请稍后再试。" });
+      console.error("调用AI聊天函数时出错:", err);
+      
+      // 提供更详细的错误信息
+      let errorMessage = "抱歉，我遇到了一些技术问题。";
+      if (err instanceof Error) {
+        if (err.message.includes('fetch')) {
+          errorMessage = "网络连接似乎有问题，请检查网络后重试。";
+        } else if (err.message.includes('timeout')) {
+          errorMessage = "请求超时，请稍后再试。";
+        } else {
+          errorMessage = `出现错误：${err.message}`;
+        }
+      }
+      
+      addMessage({ role: 'assistant', content: errorMessage });
     } finally {
       setIsLoading(false);
+      console.log('消息发送流程完成');
     }
   };
 
@@ -299,7 +345,7 @@ export const useChatLogic = () => {
         .from('teaching_resources')
         .insert({
           user_id: user!.id,
-          title: `为“${collectedInfo.topic}”生成的系列图片`,
+          title: `为"${collectedInfo.topic}"生成的系列图片`,
           content: '', // Not used for image group
           resource_type: 'image_group',
           metadata: { 
@@ -318,7 +364,7 @@ export const useChatLogic = () => {
       resetConversation();
       addMessage({
         role: 'assistant',
-        content: `“${collectedInfo.topic}”的系列图片已生成！`,
+        content: `"${collectedInfo.topic}"的系列图片已生成！`,
         resource: resourceData
       });
 
