@@ -1,15 +1,18 @@
 
 import { Outlet } from "react-router-dom";
-import Sidebar from "./Sidebar";
+import AppSidebar from "./AppSidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 const Layout = () => {
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <Outlet />
-      </main>
-    </div>
+    <SidebarProvider>
+      <div className="flex h-screen bg-background">
+        <AppSidebar />
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    </SidebarProvider>
   );
 };
 

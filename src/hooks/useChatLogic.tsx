@@ -134,15 +134,21 @@ export const useChatLogic = () => {
     } catch(err) {
       console.error("调用AI聊天函数时出错:", err);
       
-      // 提供更详细的错误信息
-      let errorMessage = "抱歉，我遇到了一些技术问题。";
+      let errorMessage = "抱歉，我遇到了一些技术问题，请稍后重试。";
       if (err instanceof Error) {
-        if (err.message.includes('fetch')) {
-          errorMessage = "网络连接似乎有问题，请检查网络后重试。";
-        } else if (err.message.includes('timeout')) {
-          errorMessage = "请求超时，请稍后再试。";
+        if (err.message.includes('Failed to fetch')) {
+            errorMessage = "网络连接失败，请检查你的网络并重试。";
+        } else if (err.message.toLowerCase().includes('unauthorized')) {
+            errorMessage = "身份验证失败，请重新登录后再试。";
         } else {
-          errorMessage = `出现错误：${err.message}`;
+            try {
+                const errorObj = JSON.parse(err.message);
+                if(errorObj.error) {
+                  errorMessage = `出错了: ${errorObj.error}`;
+                }
+            } catch(e) {
+                errorMessage = `出现了一个意外的错误: ${err.message}`;
+            }
         }
       }
       
