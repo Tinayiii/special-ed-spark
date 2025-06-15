@@ -109,13 +109,17 @@ export const useChatLogic = () => {
     
     const subject = profile?.subject || '通用';
     const textbook_edition = profile?.textbook_edition || '通用版本';
+    const teaching_object = profile?.teaching_object || '学生';
 
     try {
         const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-ppt-outline', {
             body: { 
-                prompt: collectedInfo.topic,
+                topic: collectedInfo.topic,
+                objective: collectedInfo.objective,
+                grade: collectedInfo.grade,
                 subject,
-                textbook_edition
+                textbook_edition,
+                teaching_object
             },
         });
 
@@ -127,10 +131,16 @@ export const useChatLogic = () => {
             .from('teaching_resources')
             .insert({
                 user_id: user!.id,
-                title: `为“${collectedInfo.topic}”创建的PPT大纲`,
+                title: `《${collectedInfo.topic}》专业PPT大纲`,
                 content: pptOutline,
                 resource_type: 'ppt_outline',
-                metadata: collectedInfo as any,
+                metadata: {
+                  ...collectedInfo,
+                  subject,
+                  textbook_edition,
+                  teaching_object,
+                  structure_type: 'professional_teaching_rhythm'
+                } as any,
             })
             .select()
             .single();
@@ -141,7 +151,7 @@ export const useChatLogic = () => {
         resetConversation();
         addMessage({
             role: 'assistant',
-            content: `针对主题“${collectedInfo.topic}”的PPT大纲已生成！`,
+            content: `针对主题"${collectedInfo.topic}"的专业PPT大纲已生成！这份大纲按照标准的教学节奏设计，包含完整的5段式教学流程，每个环节都有详细的内容规划和可视化建议。`,
             resource: resourceData,
         });
 
