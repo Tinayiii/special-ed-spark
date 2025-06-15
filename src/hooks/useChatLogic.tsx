@@ -57,9 +57,9 @@ export const useChatLogic = () => {
         return;
     }
 
-    console.log('开始发送消息:', messageContent);
-    console.log('当前用户:', user?.id);
-    console.log('当前收集信息:', collectedInfo);
+    console.log('【AI调试】开始发送消息:', messageContent);
+    console.log('【AI调试】当前用户:', user?.id);
+    console.log('【AI调试】当前收集信息:', collectedInfo);
 
     const userMessage: Message = { role: 'user', content: messageContent };
     
@@ -71,15 +71,15 @@ export const useChatLogic = () => {
     // 准备发送给AI的历史记录（排除初始欢迎消息）
     const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
     
-    console.log('准备发送的历史记录:', chatHistory);
-    console.log('AI函数调用参数:', {
+    console.log('【AI调试】即将调用 ai-chat Edge Function，参数:');
+    console.log({
       message: messageContent,
       history: chatHistory,
       collectedInfo: collectedInfo,
     });
 
     try {
-      const { data, error } = await supabase.functions.invoke('ai-chat', {
+      const { data, error, status } = await supabase.functions.invoke('ai-chat', {
         body: { 
           message: messageContent,
           history: chatHistory,
@@ -87,69 +87,63 @@ export const useChatLogic = () => {
         },
       });
 
-      console.log('AI函数返回数据:', data);
-      console.log('AI函数错误:', error);
+      console.log('【AI调试】ai-chat Edge Function 响应：', { data, error, status });
 
       if (error) {
-        console.error('Supabase函数调用错误:', error);
+        console.error('【AI错误】Supabase函数调用错误:', error, '状态码:', status);
+        let errorMsg = 'Supabase Edge Function 调用失败。';
+        if (status === 401) {
+          errorMsg += '（未授权，请重新登录）';
+        } else if (status === 500) {
+          errorMsg += '（服务器错误，Edge Function 运行异常）';
+        } else if (error.message) {
+          errorMsg += ` 错误信息：${error.message}`;
+        }
+        addMessage({ role: 'assistant', content: errorMsg });
         throw error;
       }
 
       if (!data) {
-        console.error('AI函数返回空数据');
-        throw new Error('AI函数返回空数据');
+        console.error('【AI错误】Edge Function 响应为空');
+        addMessage({ role: 'assistant', content: '抱歉，AI服务暂时不可用，请稍后再试。' });
+        return;
       }
       
       const { reply, is_complete, collected_info, newly_collected_info, task_ready, intent } = data;
 
-      console.log('AI回复:', reply);
-      console.log('任务状态:', { is_complete, task_ready, intent });
+      console.log('【AI调试】AI回复:', reply);
+      console.log('【AI调试】任务状态:', { is_complete, task_ready, intent });
 
       if (reply) {
         addMessage({ role: 'assistant', content: reply });
       } else {
-        console.warn('AI没有返回回复内容');
         addMessage({ role: 'assistant', content: '抱歉，我暂时无法理解您的问题，请重新描述一下。' });
       }
 
       let newCollectedInfo = { ...collectedInfo };
       if (newly_collected_info) {
         newCollectedInfo = { ...newCollectedInfo, ...newly_collected_info };
-        console.log('更新收集信息 (新增):', newly_collected_info);
       }
       if (collected_info) {
         newCollectedInfo = { ...collected_info };
-        console.log('更新收集信息 (完整):', collected_info);
       }
       setCollectedInfo(newCollectedInfo);
 
       if (task_ready) {
-        console.log('任务准备就绪，打开画布');
         setCurrentIntent(intent);
         setIsCanvasOpen(true);
-      } else if (is_complete) {
-        console.log('信息收集完成，等待用户指定任务');
       }
 
     } catch(err) {
-      console.error("调用AI聊天函数时出错:", err);
-      
-      // 提供更详细的错误信息
-      let errorMessage = "抱歉，我遇到了一些技术问题。";
+      console.error("【AI调试】调用AI聊天函数时出错:", err);
+      let errorMessage = "抱歉，遇到技术问题，AI服务暂无法使用。";
       if (err instanceof Error) {
-        if (err.message.includes('fetch')) {
-          errorMessage = "网络连接似乎有问题，请检查网络后重试。";
-        } else if (err.message.includes('timeout')) {
-          errorMessage = "请求超时，请稍后再试。";
-        } else {
-          errorMessage = `出现错误：${err.message}`;
-        }
+        errorMessage += `（${err.message}）`;
       }
-      
       addMessage({ role: 'assistant', content: errorMessage });
     } finally {
       setIsLoading(false);
-      console.log('消息发送流程完成');
+      console.log('【AI调试】消息发送流程完成');
     }
   };
 
