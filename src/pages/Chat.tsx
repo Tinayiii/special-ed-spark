@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { recognizeIntent } from '@/lib/intent-recognition';
 import { getLLMResponse } from '@/services/aiService';
 import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
+import Canvas from '@/components/Canvas';
 
 
 const Chat = () => {
@@ -32,6 +32,7 @@ const Chat = () => {
   const [collectedInfo, setCollectedInfo] = useState<TeachingInfo>({});
   const [requiredFields, setRequiredFields] = useState<Array<keyof TeachingInfo>>([]);
   const [currentQuestion, setCurrentQuestion] = useState<keyof TeachingInfo | null>(null);
+  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
 
 
   const scrollToBottom = () => {
@@ -82,17 +83,13 @@ const Chat = () => {
             assistantResponseContent = getQuestionText(nextQuestion, currentIntent!);
         } else {
             setConversationPhase('task-fulfillment');
-            assistantResponseContent = `好的，信息收集完毕：\n- 主题: ${newCollectedInfo.topic}\n- 年级: ${newCollectedInfo.grade}\n- 目标: ${newCollectedInfo.objective}\n\n正在为您生成${getIntentText(currentIntent!)}...`;
+            const finalCollectedInfo = { ...newCollectedInfo, [currentQuestion!]: userMessageContent };
+            setCollectedInfo(finalCollectedInfo);
+            
+            assistantResponseContent = `好的，信息收集完毕！\n- 主题: ${finalCollectedInfo.topic}\n- 年级: ${finalCollectedInfo.grade}\n- 目标: ${finalCollectedInfo.objective}\n\n正在为您准备${getIntentText(currentIntent!)}工具...`;
             addMessage({ role: 'assistant', content: assistantResponseContent });
             
-            const finalResponse = await getLLMResponse([
-                ...messages,
-                { role: 'user', content: userMessageContent },
-                { role: 'assistant', content: assistantResponseContent }
-            ]);
-            addMessage({ role: 'assistant', content: finalResponse });
-            
-            resetConversation();
+            setIsCanvasOpen(true);
             setIsLoading(false);
             return;
         }
@@ -126,6 +123,7 @@ const Chat = () => {
     setCollectedInfo({});
     setRequiredFields([]);
     setCurrentQuestion(null);
+    setIsCanvasOpen(false); // Make sure canvas closes on reset
   };
 
   const sendMessage = (messageContent: string) => {
@@ -144,6 +142,11 @@ const Chat = () => {
     }
   }, [initialPrompt]);
 
+  const handleCloseCanvas = () => {
+    setIsCanvasOpen(false);
+    resetConversation();
+    addMessage({ role: 'assistant', content: '好的，任务已取消。有什么新的可以帮您？' });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,73 +157,90 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-muted/20">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={cn(
-              "flex items-start gap-4",
-              message.role === 'user' ? 'justify-end' : 'justify-start'
-            )}
-          >
-            {message.role === 'assistant' && (
-              <Avatar className="w-10 h-10 border">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Sparkles className="w-6 h-6" />
-                </AvatarFallback>
-              </Avatar>
-            )}
-            <div
-              className={cn(
-                "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
-                message.role === 'user'
-                  ? 'bg-primary text-primary-foreground rounded-br-none'
-                  : 'bg-card text-card-foreground rounded-bl-none'
-              )}
-            >
-              <p className="whitespace-pre-wrap">{message.content}</p>
-            </div>
-             {message.role === 'user' && (
-              <Avatar className="w-10 h-10 border">
-                <AvatarFallback>您</AvatarFallback>
-              </Avatar>
-            )}
-          </div>
-        ))}
-        {isLoading && (
-           <div className="flex items-start gap-4 justify-start">
-             <Avatar className="w-10 h-10 border">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  <Sparkles className="w-6 h-6" />
-                </AvatarFallback>
-              </Avatar>
-              <div className="bg-card text-card-foreground rounded-xl px-4 py-3 text-base shadow-sm rounded-bl-none">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                  <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                  <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse"></span>
+    <div className="flex h-full w-full overflow-hidden">
+        {/* Main chat panel */}
+        <div className={cn(
+            "flex flex-col h-full bg-muted/20 transition-all duration-500 ease-in-out",
+            isCanvasOpen ? 'w-full lg:w-2/3' : 'w-full'
+        )}>
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {messages.map((message, index) => (
+                <div
+                    key={index}
+                    className={cn(
+                    "flex items-start gap-4",
+                    message.role === 'user' ? 'justify-end' : 'justify-start'
+                    )}
+                >
+                    {message.role === 'assistant' && (
+                    <Avatar className="w-10 h-10 border">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                        <Sparkles className="w-6 h-6" />
+                        </AvatarFallback>
+                    </Avatar>
+                    )}
+                    <div
+                    className={cn(
+                        "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
+                        message.role === 'user'
+                        ? 'bg-primary text-primary-foreground rounded-br-none'
+                        : 'bg-card text-card-foreground rounded-bl-none'
+                    )}
+                    >
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                    </div>
+                    {message.role === 'user' && (
+                    <Avatar className="w-10 h-10 border">
+                        <AvatarFallback>您</AvatarFallback>
+                    </Avatar>
+                    )}
                 </div>
-              </div>
-           </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
+                ))}
+                {isLoading && (
+                <div className="flex items-start gap-4 justify-start">
+                    <Avatar className="w-10 h-10 border">
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                        <Sparkles className="w-6 h-6" />
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="bg-card text-card-foreground rounded-xl px-4 py-3 text-base shadow-sm rounded-bl-none">
+                        <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse"></span>
+                        </div>
+                    </div>
+                </div>
+                )}
+                <div ref={messagesEndRef} />
+            </div>
 
-      <div className="p-4 bg-card border-t">
-        <form onSubmit={handleSubmit} className="flex items-center gap-3">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="与 AI 助手对话..."
-            className="flex-1"
-            disabled={isLoading}
-          />
-          <Button type="submit" size="icon" disabled={!input.trim() || isLoading}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-      </div>
+            <div className="p-4 bg-card border-t">
+                <form onSubmit={handleSubmit} className="flex items-center gap-3">
+                <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="与 AI 助手对话..."
+                    className="flex-1"
+                    disabled={isLoading || isCanvasOpen}
+                />
+                <Button type="submit" size="icon" disabled={!input.trim() || isLoading || isCanvasOpen}>
+                    <Send className="h-4 w-4" />
+                </Button>
+                </form>
+            </div>
+        </div>
+
+        {/* Canvas Panel */}
+        {isCanvasOpen && (
+            <div className="w-full lg:w-1/3 border-l animate-slide-in-right shadow-lg">
+                <Canvas
+                    onClose={handleCloseCanvas}
+                    intent={currentIntent}
+                    data={collectedInfo}
+                />
+            </div>
+        )}
     </div>
   );
 };
