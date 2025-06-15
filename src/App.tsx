@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
+import CourseDashboard from "./pages/CourseDashboard";
 import LessonPlanner from "./pages/LessonPlanner";
 import ImageEditor from "./pages/ImageEditor";
 import Settings from "./pages/Settings";
@@ -24,6 +25,7 @@ const App = () => (
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/course-dashboard" element={<CourseDashboard />} />
             <Route path="/lesson-planner" element={<LessonPlanner />} />
             <Route path="/image-editor" element={<ImageEditor />} />
             <Route path="/settings" element={<Settings />} />
