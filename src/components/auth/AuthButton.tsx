@@ -14,7 +14,7 @@ import {
 import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
 
 export const AuthButton = () => {
-    const { user, openAuthDialog, isLoading } = useAuth();
+    const { user, profile, openAuthDialog, isLoading } = useAuth();
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -38,9 +38,9 @@ export const AuthButton = () => {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                     <Avatar className="h-9 w-9">
-                        <AvatarImage src={user.user_metadata?.avatar_url} alt={user.email || '用户头像'} />
+                        <AvatarImage src={profile?.avatar_url || user.user_metadata?.avatar_url} alt={profile?.full_name || user.email || '用户头像'} />
                         <AvatarFallback>
-                            {user.email ? user.email[0].toUpperCase() : <UserIcon size={16} />}
+                            {profile?.full_name ? profile.full_name[0].toUpperCase() : (user.email ? user.email[0].toUpperCase() : <UserIcon size={16} />)}
                         </AvatarFallback>
                     </Avatar>
                 </Button>
@@ -48,7 +48,7 @@ export const AuthButton = () => {
             <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                        <p className="text-sm font-medium leading-none">我的账户</p>
+                        <p className="text-sm font-medium leading-none">{profile?.full_name || '我的账户'}</p>
                         <p className="text-xs leading-none text-muted-foreground">
                             {user.email}
                         </p>
