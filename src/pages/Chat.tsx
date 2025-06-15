@@ -7,6 +7,8 @@ import { useChatLogic } from '@/hooks/useChatLogic';
 import ChatWelcome from '@/components/chat/ChatWelcome';
 import ChatMessageList from '@/components/chat/ChatMessageList';
 import ChatInput from '@/components/chat/ChatInput';
+import { AuthDialog } from '@/components/auth/AuthDialog';
+import { ChatHeader } from '@/components/chat/ChatHeader';
 
 const Chat = () => {
   const {
@@ -38,24 +40,27 @@ const Chat = () => {
             "flex flex-col h-full bg-muted/20 transition-all duration-500 ease-in-out",
             isCanvasOpen ? 'w-full lg:w-2/3' : 'w-full'
         )}>
-            {messages.length <= 1 && !isCanvasOpen ? (
-                <ChatWelcome onSendMessage={sendMessage} />
-            ) : (
-                <>
-                    <ChatMessageList 
-                        messages={messages} 
-                        isLoading={isLoading}
-                        onViewPlan={(plan) => setPlanToShow(plan)}
-                    />
-                    <ChatInput
-                        input={input}
-                        setInput={setInput}
-                        onSubmit={handleSubmit}
-                        isLoading={isLoading}
-                        isCanvasOpen={isCanvasOpen}
-                    />
-                </>
-            )}
+            <ChatHeader />
+            <div className="flex-grow flex flex-col overflow-hidden">
+                {messages.length <= 1 && !isCanvasOpen ? (
+                    <ChatWelcome onSendMessage={sendMessage} />
+                ) : (
+                    <>
+                        <ChatMessageList 
+                            messages={messages} 
+                            isLoading={isLoading}
+                            onViewPlan={(plan) => setPlanToShow(plan)}
+                        />
+                        <ChatInput
+                            input={input}
+                            setInput={setInput}
+                            onSubmit={handleSubmit}
+                            isLoading={isLoading}
+                            isCanvasOpen={isCanvasOpen}
+                        />
+                    </>
+                )}
+            </div>
         </div>
 
         {/* Canvas Panel */}
@@ -74,6 +79,7 @@ const Chat = () => {
             onOpenChange={(open) => !open && setPlanToShow(null)}
             planContent={planToShow || ''}
         />
+        <AuthDialog />
     </div>
   );
 };

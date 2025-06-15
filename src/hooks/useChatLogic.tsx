@@ -1,10 +1,11 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { recognizeIntent } from '@/lib/intent-recognition';
 import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useChatLogic = () => {
+  const { user, openAuthDialog } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const initialPromptFromState = location.state?.initialPrompt;
@@ -113,6 +114,11 @@ export const useChatLogic = () => {
   const sendMessage = (messageContent: string) => {
     if (!messageContent.trim()) return;
 
+    if (!user) {
+        openAuthDialog();
+        return;
+    }
+
     const userMessage: Message = { role: 'user', content: messageContent };
     addMessage(userMessage);
 
@@ -179,4 +185,3 @@ export const useChatLogic = () => {
     sendMessage,
   };
 };
-
