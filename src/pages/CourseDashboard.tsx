@@ -22,7 +22,7 @@ import { Search, PlusCircle } from "lucide-react";
 const coursesData = [
   {
     id: "C001",
-    name: "二年级语文 - 春天的识字课",
+    name: "春天的识字课",
     subject: "语文",
     grade: "二年级",
     lessonPlans: 3,
@@ -32,7 +32,7 @@ const coursesData = [
   },
   {
     id: "C002",
-    name: "三年级数学 - 认识分数",
+    name: "认识分数",
     subject: "数学",
     grade: "三年级",
     lessonPlans: 2,
@@ -42,7 +42,7 @@ const coursesData = [
   },
   {
     id: "C003",
-    name: "一年级美术 - 色彩的魔力",
+    name: "色彩的魔力",
     subject: "美术",
     grade: "一年级",
     lessonPlans: 5,
@@ -52,7 +52,7 @@ const coursesData = [
   },
   {
     id: "C004",
-    name: "四年级英语 - My Family",
+    name: "My Family",
     subject: "英语",
     grade: "四年级",
     lessonPlans: 1,
@@ -62,7 +62,7 @@ const coursesData = [
   },
   {
     id: "C005",
-    name: "二年级语文 - 夏天的故事",
+    name: "夏天的故事",
     subject: "语文",
     grade: "二年级",
     lessonPlans: 4,
@@ -143,7 +143,8 @@ const CourseDashboard = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-[40%]">课程单元</TableHead>
+                <TableHead className="w-[30%]">课程单元</TableHead>
+                <TableHead className="w-[10%]">年级</TableHead>
                 <TableHead>教案</TableHead>
                 <TableHead>图片</TableHead>
                 <TableHead>文件</TableHead>
@@ -155,6 +156,7 @@ const CourseDashboard = () => {
               {filteredCourses.map((course) => (
                 <TableRow key={course.id}>
                   <TableCell className="font-medium">{course.name}</TableCell>
+                  <TableCell>{course.grade}</TableCell>
                   <TableCell>{course.lessonPlans} 份</TableCell>
                   <TableCell>{course.images} 张</TableCell>
                   <TableCell>{course.files} 个</TableCell>
