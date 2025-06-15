@@ -143,13 +143,9 @@ const CourseDashboard = () => {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-[30%]">课程单元</TableHead>
-                <TableHead className="w-[10%]">年级</TableHead>
-                <TableHead>教案</TableHead>
-                <TableHead>图片</TableHead>
-                <TableHead>文件</TableHead>
-                <TableHead>最后修改</TableHead>
-                <TableHead className="text-right">操作</TableHead>
+                <TableHead className="w-[70%]">课程单元</TableHead>
+                <TableHead className="w-[15%]">年级</TableHead>
+                <TableHead className="text-right w-[15%]">操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -157,10 +153,6 @@ const CourseDashboard = () => {
                 <TableRow key={course.id}>
                   <TableCell className="font-medium">{course.name}</TableCell>
                   <TableCell>{course.grade}</TableCell>
-                  <TableCell>{course.lessonPlans} 份</TableCell>
-                  <TableCell>{course.images} 张</TableCell>
-                  <TableCell>{course.files} 个</TableCell>
-                  <TableCell>{course.lastModified}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="sm" asChild>
                       <Link to={`/course/${course.id}`}>进入</Link>
