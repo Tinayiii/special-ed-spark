@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Message, Intent, TeachingInfo } from '@/types/chat';
@@ -201,6 +200,91 @@ export const useChatLogic = () => {
     }
   };
 
+  const handleGenerateImages = async () => {
+    setIsLoading(true);
+    
+    try {
+      addMessage({
+        role: 'assistant',
+        content: '正在为您生成智能图片提示词，请稍候...'
+      });
+      
+      // 1. Generate prompts
+      const { data: promptsData, error: promptsError } = await supabase.functions.invoke('generate-image-prompts', {
+        body: {
+          teachingObject: profile?.teaching_object || '',
+          subject: profile?.subject || '',
+          longTermGoal: profile?.long_term_goal || '',
+          topic: collectedInfo.topic || '',
+          objective: collectedInfo.objective || ''
+        },
+      });
+
+      if (promptsError) throw promptsError;
+
+      const { reasoning, prompts } = promptsData;
+
+      if (!prompts || prompts.length === 0) {
+        throw new Error("AI未能生成有效的图片提示词，请调整输入后重试。");
+      }
+
+      addMessage({
+        role: 'assistant',
+        content: `提示词已生成！\n\n**设计思路**:\n${reasoning}\n\n正在为您生成 ${prompts.length} 张图片...`
+      });
+
+      // 2. Generate images from prompts
+      const { data: imagesData, error: imagesError } = await supabase.functions.invoke('generate-image', {
+        body: { prompts },
+      });
+
+      if (imagesError) throw imagesError;
+
+      const { urls } = imagesData;
+
+      // 3. Save to teaching_resources
+      const { data: resourceData, error: resourceError } = await supabase
+        .from('teaching_resources')
+        .insert({
+          user_id: user!.id,
+          title: `为“${collectedInfo.topic}”生成的系列图片`,
+          content: '', // Not used for image group
+          resource_type: 'image_group',
+          metadata: { 
+            prompts,
+            urls,
+            baseInfo: collectedInfo,
+            reasoning,
+          } as any,
+        })
+        .select()
+        .single();
+      
+      if (resourceError) throw resourceError;
+      
+      setIsCanvasOpen(false);
+      resetConversation();
+      addMessage({
+        role: 'assistant',
+        content: `“${collectedInfo.topic}”的系列图片已生成！`,
+        resource: resourceData
+      });
+
+    } catch (error: any) {
+        console.error('Error generating images:', error);
+        addMessage({
+            role: 'assistant',
+            content: `抱歉，生成图片时出错了：${error.message}`
+        });
+    } finally {
+        setIsLoading(false);
+        if (isCanvasOpen) {
+          setIsCanvasOpen(false);
+          resetConversation();
+        }
+    }
+  };
+
   return {
     messages,
     input,
@@ -212,6 +296,7 @@ export const useChatLogic = () => {
     collectedInfo,
     handleGenerateLessonPlan,
     handleGeneratePptOutline,
+    handleGenerateImages,
     planToShow,
     setPlanToShow,
     sendMessage,
