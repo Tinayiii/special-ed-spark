@@ -49,7 +49,7 @@ const Chat = () => {
                         <ChatMessageList 
                             messages={messages} 
                             isLoading={isLoading}
-                            onViewPlan={(plan) => setPlanToShow(plan)}
+                            onViewResource={(content) => setPlanToShow(content)}
                         />
                         <ChatInput
                             input={input}

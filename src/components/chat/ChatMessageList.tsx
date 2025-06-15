@@ -6,14 +6,15 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Eye } from 'lucide-react';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface ChatMessageListProps {
-  messages: (Message & { lessonPlan?: string })[];
+  messages: (Message & { resource?: Tables<'teaching_resources'> | null })[];
   isLoading: boolean;
-  onViewPlan: (plan: string) => void;
+  onViewResource: (content: string) => void;
 }
 
-const ChatMessageList = ({ messages, isLoading, onViewPlan }: ChatMessageListProps) => {
+const ChatMessageList = ({ messages, isLoading, onViewResource }: ChatMessageListProps) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -24,10 +25,23 @@ const ChatMessageList = ({ messages, isLoading, onViewPlan }: ChatMessageListPro
     scrollToBottom();
   }, [messages, isLoading]);
 
+  const getResourceTitle = (resourceType: string) => {
+    switch (resourceType) {
+      case 'lesson_plan':
+        return '教案已生成';
+      case 'ppt_outline':
+        return 'PPT大纲已生成';
+      case 'image':
+        return '图片已生成';
+      default:
+        return '资源已生成';
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {messages.map((message, index) => (
-          message.lessonPlan ? (
+          message.resource ? (
             <div key={index} className="flex items-start gap-4 justify-start">
                 <Avatar className="w-10 h-10 border">
                     <AvatarFallback className="bg-primary text-primary-foreground">
@@ -36,11 +50,11 @@ const ChatMessageList = ({ messages, isLoading, onViewPlan }: ChatMessageListPro
                 </Avatar>
                 <Card className="max-w-md md:max-w-lg lg:max-w-xl animate-fade-in">
                     <CardHeader>
-                        <CardTitle>教案已生成</CardTitle>
+                        <CardTitle>{getResourceTitle(message.resource.resource_type)}</CardTitle>
                         <CardDescription>{message.content}</CardDescription>
                     </CardHeader>
                     <CardFooter>
-                        <Button className="w-full" onClick={() => onViewPlan(message.lessonPlan || '')}>
+                        <Button className="w-full" onClick={() => onViewResource(message.resource?.content || '')}>
                             <Eye className="mr-2 h-4 w-4" />
                             查看详情
                         </Button>

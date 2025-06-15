@@ -56,7 +56,7 @@ export type Database = {
           conversation_id: string
           created_at: string | null
           id: string
-          lesson_plan_id: string | null
+          resource_id: string | null
           role: string
         }
         Insert: {
@@ -64,7 +64,7 @@ export type Database = {
           conversation_id: string
           created_at?: string | null
           id?: string
-          lesson_plan_id?: string | null
+          resource_id?: string | null
           role: string
         }
         Update: {
@@ -72,13 +72,13 @@ export type Database = {
           conversation_id?: string
           created_at?: string | null
           id?: string
-          lesson_plan_id?: string | null
+          resource_id?: string | null
           role?: string
         }
         Relationships: [
           {
-            foreignKeyName: "fk_lesson_plan"
-            columns: ["lesson_plan_id"]
+            foreignKeyName: "fk_resource_id"
+            columns: ["resource_id"]
             isOneToOne: false
             referencedRelation: "teaching_resources"
             referencedColumns: ["id"]
