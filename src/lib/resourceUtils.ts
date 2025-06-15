@@ -1,4 +1,5 @@
 
+import React from "react";
 import { BookOpen, FileText, ImageIcon } from "lucide-react";
 
 export const getResourceIcon = (type: string) => {
