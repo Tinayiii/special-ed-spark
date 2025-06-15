@@ -1,11 +1,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import OpenAI from "https://deno.land/x/openai/mod.ts";
 import { corsHeaders } from '../_shared/cors.ts'
 
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`;
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -15,21 +13,37 @@ serve(async (req: Request) => {
   try {
     const { prompt, subject, textbook_edition } = await req.json();
 
-    const systemPrompt = `You are an expert in creating PowerPoint presentation outlines for special education teachers.
+    const systemInstruction = `You are an expert in creating PowerPoint presentation outlines for special education teachers.
 The user teaches ${subject} using the ${textbook_edition} textbook.
 Generate a clear, structured PPT outline based on the user's request.
 The outline should have a title, and a list of slides with titles and bullet points.
 Format the output in Markdown.`;
 
-    const chatCompletion = await openai.chat.completions.create({
-        messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
-        ],
-        model: 'gpt-4o-mini',
+    const response = await fetch(GEMINI_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: {
+                parts: [{ text: systemInstruction }]
+            },
+            contents: [{
+                role: 'user',
+                parts: [{ text: prompt }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                responseMimeType: "text/plain",
+            }
+        })
     });
+    
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Gemini API request failed with status ${response.status}: ${errorBody}`);
+    }
 
-    const pptOutline = chatCompletion.choices[0].message.content;
+    const responseData = await response.json();
+    const pptOutline = responseData.candidates[0].content.parts[0].text;
 
     return new Response(JSON.stringify({ pptOutline }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

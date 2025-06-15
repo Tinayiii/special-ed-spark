@@ -1,12 +1,9 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import OpenAI from "https://deno.land/x/openai/mod.ts";
 import { corsHeaders } from '../_shared/cors.ts'
 
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`;
 
 const systemPromptTemplate = `
 You are Lily, an intelligent assistant for special education teachers. Your personality is friendly, warm, and helpful.
@@ -82,28 +79,49 @@ async function handleRequest(req: Request): Promise<Response> {
       .eq('id', user.id)
       .single()
 
-    const systemPrompt = systemPromptTemplate
+    const systemInstruction = systemPromptTemplate
       .replace('{profile_json}', JSON.stringify(profile || {}))
       .replace('{profile_subject}', profile?.subject || 'the usual')
       .replace('{collected_info_json}', JSON.stringify(collectedInfo || {}));
 
-    const conversationMessages = [
-      { role: 'system', content: systemPrompt },
-      ...history,
-      { role: 'user', content: message },
-    ];
+    // Transform messages for Gemini: map 'assistant' to 'model' and structure parts
+    const geminiHistory = [...history, { role: 'user', content: message }]
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
     
-    const chatCompletion = await openai.chat.completions.create({
-      messages: conversationMessages,
-      model: 'gpt-4o-mini',
-      temperature: 0.5,
-      response_format: { type: "json_object" },
+    const geminiResponse = await fetch(GEMINI_API_URL, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: {
+                parts: [{ text: systemInstruction }]
+            },
+            contents: geminiHistory,
+            generationConfig: {
+                temperature: 0.5,
+                responseMimeType: "application/json",
+            }
+        })
     });
+
+    if (!geminiResponse.ok) {
+        const errorBody = await geminiResponse.text();
+        console.error("Gemini API Error:", errorBody);
+        throw new Error(`Gemini API request failed with status ${geminiResponse.status}`);
+    }
     
-    const responseContent = chatCompletion.choices[0].message.content;
+    const responseData = await geminiResponse.json();
+    // Handle cases where API returns no candidates
+    if (!responseData.candidates || responseData.candidates.length === 0) {
+      console.error("Gemini Response Data:", responseData);
+      throw new Error("Invalid response from Gemini: No candidates found.");
+    }
+    const responseContent = responseData.candidates[0].content.parts[0].text;
 
     if (!responseContent) {
-      throw new Error("Empty response from OpenAI.");
+      throw new Error("Empty response from Gemini.");
     }
     
     const parsedResponse = JSON.parse(responseContent);

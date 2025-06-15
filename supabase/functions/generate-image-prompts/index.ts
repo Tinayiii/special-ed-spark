@@ -1,11 +1,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import OpenAI from "https://deno.land/x/openai/mod.ts";
 import { corsHeaders } from '../_shared/cors.ts'
 
-const openai = new OpenAI({
-  apiKey: Deno.env.get('OPENAI_API_KEY'),
-});
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`;
 
 const SYSTEM_PROMPT = `## 角色
 你是系列图片提示词生成大师，帮助特殊教育学校老师生成合适的教学图片。
@@ -58,17 +56,31 @@ serve(async (req: Request) => {
 - 本次授课内容: ${topic || '未指定'}
 - 本次教学目标: ${objective || '未指定'}
 `
-    const response = await openai.chat.completions.create({
-        model: "gpt-4.1-2025-04-14",
-        messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userContent },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.7,
+    const response = await fetch(GEMINI_API_URL, {
+        method: "POST",
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            systemInstruction: {
+                parts: [{ text: SYSTEM_PROMPT }]
+            },
+            contents: [{
+                role: 'user',
+                parts: [{ text: userContent }]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                responseMimeType: "application/json",
+            }
+        })
     });
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Gemini API request failed with status ${response.status}: ${errorBody}`);
+    }
     
-    const content = response.choices[0].message.content;
+    const responseData = await response.json();
+    const content = responseData.candidates[0].content.parts[0].text;
     const parsedContent = JSON.parse(content || '{}');
 
     return new Response(JSON.stringify(parsedContent), {
