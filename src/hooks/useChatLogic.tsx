@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tables } from '@/integrations/supabase/types';
 
 export const useChatLogic = () => {
-  const { user, openAuthDialog } = useAuth();
+  const { user, profile, openAuthDialog } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const initialPromptFromState = location.state?.initialPrompt;
@@ -143,8 +143,8 @@ export const useChatLogic = () => {
   const handleGeneratePptOutline = async () => {
     setIsLoading(true);
     
-    const subject = user?.profile?.subject || '通用';
-    const textbook_edition = user?.profile?.textbook_edition || '通用版本';
+    const subject = profile?.subject || '通用';
+    const textbook_edition = profile?.textbook_edition || '通用版本';
 
     try {
         const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-ppt-outline', {
@@ -166,7 +166,7 @@ export const useChatLogic = () => {
                 title: `为“${collectedInfo.topic}”创建的PPT大纲`,
                 content: pptOutline,
                 resource_type: 'ppt_outline',
-                metadata: collectedInfo,
+                metadata: collectedInfo as any,
             })
             .select()
             .single();
@@ -210,7 +210,7 @@ export const useChatLogic = () => {
               title: `为“${collectedInfo.topic}”创建的教案`,
               content: lessonPlan,
               resource_type: 'lesson_plan',
-              metadata: collectedInfo,
+              metadata: collectedInfo as any,
           })
           .select()
           .single();
