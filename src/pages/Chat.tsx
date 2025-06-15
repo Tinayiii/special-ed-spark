@@ -2,21 +2,22 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, Eye } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { recognizeIntent } from '@/lib/intent-recognition';
 import { getLLMResponse } from '@/services/aiService';
 import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
 import Canvas from '@/components/Canvas';
-
+import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import LessonPlanDialog from '@/components/LessonPlanDialog';
 
 const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const initialPrompt = location.state?.initialPrompt;
 
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<(Message & { lessonPlan?: string })[]>([
     {
       role: 'assistant',
       content: '你好！我是您的特教之光AI助手，有什么可以帮助您的吗？例如：帮我创建一个关于春天的教案。'
@@ -33,6 +34,7 @@ const Chat = () => {
   const [requiredFields, setRequiredFields] = useState<Array<keyof TeachingInfo>>([]);
   const [currentQuestion, setCurrentQuestion] = useState<keyof TeachingInfo | null>(null);
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
+  const [planToShow, setPlanToShow] = useState<string | null>(null);
 
 
   const scrollToBottom = () => {
@@ -43,7 +45,7 @@ const Chat = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
-  const addMessage = (message: Message) => {
+  const addMessage = (message: Message & { lessonPlan?: string }) => {
     setMessages(prev => [...prev, message]);
   };
   
@@ -148,6 +150,38 @@ const Chat = () => {
     addMessage({ role: 'assistant', content: '好的，任务已取消。有什么新的可以帮您？' });
   };
 
+  const handleGenerateLessonPlan = () => {
+    setIsLoading(true);
+    // Simulate generation
+    setTimeout(() => {
+        const generatedPlan = `### 教学主题：${collectedInfo.topic || '未指定'}
+### 适用年级：${collectedInfo.grade || '未指定'}
+### 教学目标：
+1. 知识与技能：${collectedInfo.objective || '认识并能正确、流利、有感情地朗读课文。'}
+2. 过程与方法：通过小组合作、自主探究的方式，理解课文内容。
+3. 情感态度与价值观：感受课文所表达的美好情感，激发学生热爱大自然的情感。
+
+### 教学重难点：
+重点：有感情地朗读课文。
+难点：理解课文中蕴含的深刻道理。
+
+### 教学过程：
+一、导入新课（5分钟）
+二、初读课文，整体感知（10分钟）
+三、深入研读，合作探究（20分钟）
+四、拓展延伸，布置作业（5分钟）`;
+        
+        setIsCanvasOpen(false);
+        resetConversation();
+        addMessage({
+            role: 'assistant',
+            content: `针对主题“${collectedInfo.topic}”为${collectedInfo.grade}学生设计的教案已生成！`,
+            lessonPlan: generatedPlan
+        });
+        setIsLoading(false);
+    }, 2000);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
@@ -165,39 +199,61 @@ const Chat = () => {
         )}>
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
                 {messages.map((message, index) => (
-                <div
-                    key={index}
-                    className={cn(
-                    "flex items-start gap-4",
-                    message.role === 'user' ? 'justify-end' : 'justify-start'
-                    )}
-                >
-                    {message.role === 'assistant' && (
-                    <Avatar className="w-10 h-10 border">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Sparkles className="w-6 h-6" />
-                        </AvatarFallback>
-                    </Avatar>
-                    )}
-                    <div
-                    className={cn(
-                        "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
-                        message.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-br-none'
-                        : 'bg-card text-card-foreground rounded-bl-none'
-                    )}
-                    >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  message.lessonPlan ? (
+                    <div key={index} className="flex items-start gap-4 justify-start">
+                         <Avatar className="w-10 h-10 border">
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                            <Sparkles className="w-6 h-6" />
+                            </AvatarFallback>
+                        </Avatar>
+                        <Card className="max-w-md md:max-w-lg lg:max-w-xl animate-fade-in">
+                            <CardHeader>
+                                <CardTitle>教案已生成</CardTitle>
+                                <CardDescription>{message.content}</CardDescription>
+                            </CardHeader>
+                            <CardFooter>
+                                <Button className="w-full" onClick={() => setPlanToShow(message.lessonPlan || null)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    查看详情
+                                </Button>
+                            </CardFooter>
+                        </Card>
                     </div>
-                    {message.role === 'user' && (
-                    <Avatar className="w-10 h-10 border">
-                        <AvatarFallback>您</AvatarFallback>
-                    </Avatar>
-                    )}
-                </div>
+                ) : (
+                  <div
+                      key={index}
+                      className={cn(
+                      "flex items-start gap-4",
+                      message.role === 'user' ? 'justify-end' : 'justify-start'
+                      )}
+                  >
+                      {message.role === 'assistant' && (
+                      <Avatar className="w-10 h-10 border">
+                          <AvatarFallback className="bg-primary text-primary-foreground">
+                          <Sparkles className="w-6 h-6" />
+                          </AvatarFallback>
+                      </Avatar>
+                      )}
+                      <div
+                      className={cn(
+                          "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
+                          message.role === 'user'
+                          ? 'bg-primary text-primary-foreground rounded-br-none'
+                          : 'bg-card text-card-foreground rounded-bl-none'
+                      )}
+                      >
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                      </div>
+                      {message.role === 'user' && (
+                      <Avatar className="w-10 h-10 border">
+                          <AvatarFallback>您</AvatarFallback>
+                      </Avatar>
+                      )}
+                  </div>
+                )
                 ))}
                 {isLoading && (
-                <div className="flex items-start gap-4 justify-start">
+                  <div className="flex items-start gap-4 justify-start">
                     <Avatar className="w-10 h-10 border">
                         <AvatarFallback className="bg-primary text-primary-foreground">
                         <Sparkles className="w-6 h-6" />
@@ -238,9 +294,15 @@ const Chat = () => {
                     onClose={handleCloseCanvas}
                     intent={currentIntent}
                     data={collectedInfo}
+                    onGenerateLessonPlan={handleGenerateLessonPlan}
                 />
             </div>
         )}
+        <LessonPlanDialog
+            open={!!planToShow}
+            onOpenChange={(open) => !open && setPlanToShow(null)}
+            planContent={planToShow || ''}
+        />
     </div>
   );
 };

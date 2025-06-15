@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { X, Wand2, UploadCloud } from 'lucide-react';
+import { X, Wand2, UploadCloud, Loader2 } from 'lucide-react';
 import { Intent, TeachingInfo } from '@/types/chat';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -183,20 +183,53 @@ const ImageGenCanvas = ({ data }: { data: TeachingInfo }) => {
     )
 }
 
+// 为教案生成任务定制的Canvas内容
+const LessonPlanCanvas = ({ onGenerate }: { onGenerate: () => void }) => {
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerate = () => {
+        setIsGenerating(true);
+        onGenerate();
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full animate-fade-in text-center">
+            <div className="space-y-4 max-w-sm">
+                 <h3 className="text-lg font-semibold">准备生成教案</h3>
+                 <p className="text-sm text-muted-foreground">AI 将根据之前收集的信息为您创建一份详细的教案。</p>
+                 <Button onClick={handleGenerate} disabled={isGenerating} className="w-full text-lg py-6">
+                    {isGenerating ? (
+                        <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            生成中...
+                        </>
+                    ) : (
+                        <>
+                            <Wand2 className="mr-2 h-5 w-5" />
+                            生成教案
+                        </>
+                    )}
+                 </Button>
+            </div>
+        </div>
+    );
+};
+
 // Canvas 主组件
 interface CanvasProps {
   onClose: () => void;
   intent: Intent | null;
   data: TeachingInfo;
+  onGenerateLessonPlan?: () => void;
 }
 
-const Canvas: React.FC<CanvasProps> = ({ onClose, intent, data }) => {
+const Canvas: React.FC<CanvasProps> = ({ onClose, intent, data, onGenerateLessonPlan }) => {
   const renderContent = () => {
     switch (intent) {
       case 'image-generation':
         return <ImageGenCanvas data={data} />;
       case 'lesson-plan':
-        return <div className="animate-fade-in text-center text-muted-foreground"><p>教案生成界面正在开发中...</p></div>;
+        return <LessonPlanCanvas onGenerate={onGenerateLessonPlan!} />;
       case 'ppt-creation':
         return <div className="animate-fade-in text-center text-muted-foreground"><p>PPT 创建界面正在开发中...</p></div>;
       default:
