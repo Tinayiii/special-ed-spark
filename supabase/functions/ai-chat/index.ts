@@ -8,39 +8,58 @@ const openai = new OpenAI({
   apiKey: Deno.env.get('OPENAI_API_KEY'),
 });
 
-// Function to get intent from LLM
-async function getIntentFromLlm(message: string): Promise<string> {
-  const prompt = `Based on the user's message, what is their primary intent? Respond with only one of the following JSON-compatible strings: "lesson-plan", "image-generation", "ppt-outline", or "unknown".\n\nUser message: "${message}"\n\nIntent:`;
+const systemPromptTemplate = `
+You are Lily, an intelligent assistant for special education teachers. Your personality is friendly, warm, and helpful.
 
-  try {
-    const chatCompletion = await openai.chat.completions.create({
-      messages: [{ role: 'system', content: "You are an expert at classifying user intent." }, { role: 'user', content: prompt }],
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-      max_tokens: 20,
-    });
+# Your Goal
+Your primary goal is to collect a complete set of information before helping with a specific task. You must collect all of the following:
+- teaching_object: The students the teacher is teaching.
+- textbook_edition: The textbook version.
+- subject: The subject being taught.
+- long_term_goal: The long-term teaching goal.
+- current_topic: The topic for the current lesson.
+- current_objective: The specific, clear objective for the current lesson.
 
-    const intent = chatCompletion.choices[0].message.content?.trim().replace(/"/g, '') || 'unknown';
-    console.log(`LLM recognized intent: ${intent}`);
-    const validIntents = ["lesson-plan", "image-generation", "ppt-outline", "unknown"];
-    if (validIntents.includes(intent)) {
-        return intent;
-    }
-    return 'unknown';
-  } catch (error) {
-    console.error('Error getting intent from LLM:', error);
-    return 'unknown';
-  }
-}
+# Known Information
+The user's profile contains: {profile_json}
+So far in this conversation, we have collected: {collected_info_json}
+
+# Workflow & Rules
+1.  **Analyze and Ask**: In each turn, review the known and collected information. If any of the required fields are missing, ask for ONE piece of missing information.
+2.  **Use Known Info**: Do not ask for information that is already in the user's profile or has been collected in this conversation.
+3.  **Handle Conflicts**: If the user provides information that conflicts with their profile (e.g., changes subject), gently ask for clarification. Example: "I see your subject is usually {profile_subject}. Are we working on a different subject today? Just wanted to double-check!"
+4.  **Clarify Vague Goals**: Ensure the \`current_objective\` is specific. If a user says "improve concentration," guide them to be more specific. Example: "That's a great goal! To help me better, could you tell me what specific activity or knowledge point we'll be focusing on?"
+5.  **Be Concise**: Keep replies short and conversational (under 100 words), except for the final summary. Use "你" instead of "您".
+6.  **Completion**: Once ALL information is collected, provide a final summary and then ask what to do next. Example: "Now, how can I help? I can generate a lesson plan or a PPT outline."
+
+# Final Summary Template
+When all information is collected, use this exact template for your summary.
+好的，我已了解你的基本信息和教学需求：
+- 你的教学对象是：{teaching_object}
+- 当前使用的教材是：{textbook_edition}
+- 目前的授课科目是：{subject}
+- 该科目的长期教学目标是：{long_term_goal}
+- 本次授课的内容是：{current_topic}
+- 本次授课希望达到的教学目标是：{current_objective}
+
+# Task Recognition
+If all information is collected and the user's message is asking to perform a task, recognize the intent. Valid intents: "lesson-plan", "ppt-creation", "image-generation".
+
+# Output Format
+You MUST respond with a single JSON object.
+- For intermediate questions: \`{"reply": "Your question..."}\`
+- If you extract info: \`{"reply": "...", "newly_collected_info": { "field": "value" }}\`
+- On final summary: \`{"reply": "The summary...", "is_complete": true, "collected_info": { ...all data... }}\`
+- On task recognition (after info is complete): \`{"reply": "Ok, preparing...", "task_ready": true, "intent": "recognized_intent", "collected_info": { ...all data... }}\`
+`;
 
 async function handleRequest(req: Request): Promise<Response> {
-  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { message } = await req.json()
+    const { message, history, collectedInfo } = await req.json()
     const authHeader = req.headers.get('Authorization')!
 
     const supabaseClient = createClient(
@@ -59,46 +78,37 @@ async function handleRequest(req: Request): Promise<Response> {
 
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('subject, textbook_edition')
+      .select('subject, textbook_edition, teaching_object, long_term_goal')
       .eq('id', user.id)
       .single()
 
-    let response;
+    const systemPrompt = systemPromptTemplate
+      .replace('{profile_json}', JSON.stringify(profile || {}))
+      .replace('{profile_subject}', profile?.subject || 'the usual')
+      .replace('{collected_info_json}', JSON.stringify(collectedInfo || {}));
 
-    if (!profile?.subject) {
-      response = { next_question: 'subject', reply: "为了给您提供更个性化的帮助，我需要了解一些信息。请问您主要教授什么科目？" };
-    } else if (!profile?.textbook_edition) {
-      response = { next_question: 'textbook_edition', reply: `好的，我记下了您教的科目是${profile.subject}。请问您使用的教材是哪个版本的？` };
-    } else {
-      const intent = await getIntentFromLlm(message);
-      
-      let reply = '';
-      switch (intent) {
-        case 'lesson-plan':
-          reply = `好的，我明白了。您想让我帮您创建一个教案。请告诉我关于这个教案的更多细节，例如课题、年级和教学目标。`;
-          break;
-        case 'image-generation':
-          reply = `好的，您想生成一张图片。请详细描述一下您想看到的画面。`;
-          break;
-        case 'ppt-outline':
-          reply = `好的，您需要一个PPT大纲。请告诉我PPT的主题和主要内容点。`;
-          break;
-        default:
-          const chatCompletion = await openai.chat.completions.create({
-            messages: [
-                { role: 'system', content: `You are a helpful teaching assistant for special education. The user's profile: subject is ${profile.subject}, textbook is ${profile.textbook_edition}. Keep your answers concise and helpful.` },
-                { role: 'user', content: message }
-            ],
-            model: 'gpt-4o-mini',
-          });
-          reply = chatCompletion.choices[0].message.content || "抱歉，我不太明白您的意思，可以再说一遍吗？";
-          break;
-      }
-      
-      response = { intent: intent, reply: reply };
+    const conversationMessages = [
+      { role: 'system', content: systemPrompt },
+      ...history,
+      { role: 'user', content: message },
+    ];
+    
+    const chatCompletion = await openai.chat.completions.create({
+      messages: conversationMessages,
+      model: 'gpt-4o-mini',
+      temperature: 0.5,
+      response_format: { type: "json_object" },
+    });
+    
+    const responseContent = chatCompletion.choices[0].message.content;
+
+    if (!responseContent) {
+      throw new Error("Empty response from OpenAI.");
     }
+    
+    const parsedResponse = JSON.parse(responseContent);
 
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(parsedResponse), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })

@@ -99,7 +99,9 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          long_term_goal: string | null
           subject: string | null
+          teaching_object: string | null
           textbook_edition: string | null
           updated_at: string | null
         }
@@ -109,7 +111,9 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          long_term_goal?: string | null
           subject?: string | null
+          teaching_object?: string | null
           textbook_edition?: string | null
           updated_at?: string | null
         }
@@ -119,7 +123,9 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          long_term_goal?: string | null
           subject?: string | null
+          teaching_object?: string | null
           textbook_edition?: string | null
           updated_at?: string | null
         }

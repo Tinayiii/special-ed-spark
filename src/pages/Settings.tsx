@@ -4,13 +4,57 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from 'react';
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Settings = () => {
+  const { user, profile } = useAuth();
+  const [teachingObject, setTeachingObject] = useState('');
+  const [textbookVersion, setTextbookVersion] = useState('');
+  const [subject, setSubject] = useState('');
+  const [longTermGoal, setLongTermGoal] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (profile) {
+      setTeachingObject(profile.teaching_object || '');
+      setTextbookVersion(profile.textbook_edition || '');
+      setSubject(profile.subject || '');
+      setLongTermGoal(profile.long_term_goal || '');
+    }
+  }, [profile]);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setIsSaving(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        teaching_object: teachingObject,
+        textbook_edition: textbookVersion,
+        subject: subject,
+        long_term_goal: longTermGoal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
+    
+    setIsSaving(false);
+    if (error) {
+      toast.error('保存失败: ' + error.message);
+    } else {
+      toast.success('设置已保存！');
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
         <h1 className="text-34 font-medium leading-1.3 text-gray-800">设置</h1>
-        <p className="text-xl text-muted-foreground mt-2">在这里管理您的教学偏好，这些信息将被用于生成更个性化的内容。</p>
+        <p className="text-xl text-muted-foreground mt-2">在这里管理你的教学偏好，这些信息将被用于生成更个性化的内容。</p>
       </div>
       
       <Card>
@@ -19,25 +63,27 @@ const Settings = () => {
           <CardDescription>这些信息将会被AI优先参考，以提供更精准的辅助。</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleSave}>
             <div className="space-y-2">
               <Label htmlFor="teaching-object">教学对象</Label>
-              <Input id="teaching-object" placeholder="例如：小学二年级，有学习障碍的学生" />
+              <Input id="teaching-object" placeholder="例如：小学二年级，有学习障碍的学生" value={teachingObject} onChange={(e) => setTeachingObject(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="textbook-version">教材版本</Label>
-              <Input id="textbook-version" placeholder="例如：人教版、苏教版" />
+              <Input id="textbook-version" placeholder="例如：人教版、苏教版" value={textbookVersion} onChange={(e) => setTextbookVersion(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="subject">授课科目</Label>
-              <Input id="subject" placeholder="例如：语文、数学" />
+              <Input id="subject" placeholder="例如：语文、数学" value={subject} onChange={(e) => setSubject(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="long-term-goal">长期教学目标</Label>
-              <Textarea id="long-term-goal" placeholder="描述该科目的长期教学目标..." className="min-h-[100px]" />
+              <Textarea id="long-term-goal" placeholder="描述该科目的长期教学目标..." className="min-h-[100px]" value={longTermGoal} onChange={(e) => setLongTermGoal(e.target.value)} />
             </div>
             <div className="flex justify-end">
-              <Button type="submit">保存设置</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? '保存中...' : '保存设置'}
+              </Button>
             </div>
           </form>
         </CardContent>
