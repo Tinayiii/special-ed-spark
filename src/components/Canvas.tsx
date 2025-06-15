@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { X, Wand2, UploadCloud, Loader2 } from 'lucide-react';
@@ -215,15 +216,49 @@ const LessonPlanCanvas = ({ onGenerate }: { onGenerate: () => void }) => {
     );
 };
 
+// 为PPT大纲生成任务定制的Canvas内容
+const PptOutlineCanvas = ({ onGenerate }: { onGenerate: () => void }) => {
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    const handleGenerate = () => {
+        setIsGenerating(true);
+        onGenerate();
+    };
+
+    return (
+        <div className="flex flex-col items-center justify-center h-full animate-fade-in text-center">
+            <div className="space-y-4 max-w-sm">
+                 <h3 className="text-lg font-semibold">准备生成PPT大纲</h3>
+                 <p className="text-sm text-muted-foreground">AI 将根据之前收集的信息，并结合您的个人资料（学科、使用教材版本）为您创建一份详细的PPT大纲。</p>
+                 <Button onClick={handleGenerate} disabled={isGenerating} className="w-full text-lg py-6">
+                    {isGenerating ? (
+                        <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            生成中...
+                        </>
+                    ) : (
+                        <>
+                            <Wand2 className="mr-2 h-5 w-5" />
+                            生成PPT大纲
+                        </>
+                    )}
+                 </Button>
+            </div>
+        </div>
+    );
+};
+
+
 // Canvas 主组件
 interface CanvasProps {
   onClose: () => void;
   intent: Intent | null;
   data: TeachingInfo;
   onGenerateLessonPlan?: () => void;
+  onGeneratePptOutline?: () => void;
 }
 
-const Canvas: React.FC<CanvasProps> = ({ onClose, intent, data, onGenerateLessonPlan }) => {
+const Canvas: React.FC<CanvasProps> = ({ onClose, intent, data, onGenerateLessonPlan, onGeneratePptOutline }) => {
   const renderContent = () => {
     switch (intent) {
       case 'image-generation':
@@ -231,7 +266,7 @@ const Canvas: React.FC<CanvasProps> = ({ onClose, intent, data, onGenerateLesson
       case 'lesson-plan':
         return <LessonPlanCanvas onGenerate={onGenerateLessonPlan!} />;
       case 'ppt-creation':
-        return <div className="animate-fade-in text-center text-muted-foreground"><p>PPT 创建界面正在开发中...</p></div>;
+        return <PptOutlineCanvas onGenerate={onGeneratePptOutline!} />;
       default:
         return <div className="animate-fade-in text-center text-muted-foreground"><p>任务正在处理中...</p></div>;
     }

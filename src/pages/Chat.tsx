@@ -21,6 +21,7 @@ const Chat = () => {
     currentIntent,
     collectedInfo,
     handleGenerateLessonPlan,
+    handleGeneratePptOutline,
     planToShow,
     setPlanToShow,
     sendMessage,
@@ -71,6 +72,7 @@ const Chat = () => {
                     intent={currentIntent}
                     data={collectedInfo}
                     onGenerateLessonPlan={handleGenerateLessonPlan}
+                    onGeneratePptOutline={handleGeneratePptOutline}
                 />
             </div>
         )}

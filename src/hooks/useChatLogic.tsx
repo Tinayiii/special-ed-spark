@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { recognizeIntent } from '@/lib/intent-recognition';
 import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { Tables } from '@/integrations/supabase/types';
 
 export const useChatLogic = () => {
   const { user, openAuthDialog } = useAuth();
@@ -10,7 +12,7 @@ export const useChatLogic = () => {
   const navigate = useNavigate();
   const initialPromptFromState = location.state?.initialPrompt;
 
-  const [messages, setMessages] = useState<(Message & { lessonPlan?: string })[]>([
+  const [messages, setMessages] = useState<(Message & { resource?: Tables<'teaching_resources'> | null })[]>([
     {
       role: 'assistant',
       content: '你好！我是您的特教之光AI助手，有什么可以帮助您的吗？例如：帮我创建一个关于春天的教案。'
@@ -28,7 +30,7 @@ export const useChatLogic = () => {
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [planToShow, setPlanToShow] = useState<string | null>(null);
 
-  const addMessage = (message: Message & { lessonPlan?: string }) => {
+  const addMessage = (message: Message & { resource?: Tables<'teaching_resources'> | null }) => {
     setMessages(prev => [...prev, message]);
   };
   
@@ -138,36 +140,100 @@ export const useChatLogic = () => {
     addMessage({ role: 'assistant', content: '好的，任务已取消。有什么新的可以帮您？' });
   };
 
-  const handleGenerateLessonPlan = () => {
+  const handleGeneratePptOutline = async () => {
     setIsLoading(true);
-    // Simulate generation
-    setTimeout(() => {
-        const generatedPlan = `### 教学主题：${collectedInfo.topic || '未指定'}
-### 适用年级：${collectedInfo.grade || '未指定'}
-### 教学目标：
-1. 知识与技能：${collectedInfo.objective || '认识并能正确、流利、有感情地朗读课文。'}
-2. 过程与方法：通过小组合作、自主探究的方式，理解课文内容。
-3. 情感态度与价值观：感受课文所表达的美好情感，激发学生热爱大自然的情感。
+    
+    const subject = user?.profile?.subject || '通用';
+    const textbook_edition = user?.profile?.textbook_edition || '通用版本';
 
-### 教学重难点：
-重点：有感情地朗读课文。
-难点：理解课文中蕴含的深刻道理。
+    try {
+        const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-ppt-outline', {
+            body: { 
+                prompt: collectedInfo.topic,
+                subject,
+                textbook_edition
+            },
+        });
 
-### 教学过程：
-一、导入新课（5分钟）
-二、初读课文，整体感知（10分钟）
-三、深入研读，合作探究（20分钟）
-四、拓展延伸，布置作业（5分钟）`;
+        if (functionError) throw functionError;
+
+        const { pptOutline } = functionData;
+
+        const { data: resourceData, error: resourceError } = await supabase
+            .from('teaching_resources')
+            .insert({
+                user_id: user!.id,
+                title: `为“${collectedInfo.topic}”创建的PPT大纲`,
+                content: pptOutline,
+                resource_type: 'ppt_outline',
+                metadata: collectedInfo,
+            })
+            .select()
+            .single();
+
+        if (resourceError) throw resourceError;
         
         setIsCanvasOpen(false);
         resetConversation();
         addMessage({
             role: 'assistant',
-            content: `针对主题“${collectedInfo.topic}”为${collectedInfo.grade}学生设计的教案已生成！`,
-            lessonPlan: generatedPlan
+            content: `针对主题“${collectedInfo.topic}”的PPT大纲已生成！`,
+            resource: resourceData,
         });
+
+    } catch (error) {
+        console.error('Error generating PPT outline:', error);
+        addMessage({
+            role: 'assistant',
+            content: '抱歉，生成PPT大纲时出错了，请稍后再试。'
+        });
+    } finally {
         setIsLoading(false);
-    }, 2000);
+    }
+  };
+
+  const handleGenerateLessonPlan = async () => {
+    setIsLoading(true);
+    try {
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-lesson-plan', {
+          body: collectedInfo, // pass topic, grade, objective
+      });
+
+      if (functionError) throw functionError;
+
+      const { lessonPlan } = functionData;
+
+      const { data: resourceData, error: resourceError } = await supabase
+          .from('teaching_resources')
+          .insert({
+              user_id: user!.id,
+              title: `为“${collectedInfo.topic}”创建的教案`,
+              content: lessonPlan,
+              resource_type: 'lesson_plan',
+              metadata: collectedInfo,
+          })
+          .select()
+          .single();
+      
+      if (resourceError) throw resourceError;
+      
+      setIsCanvasOpen(false);
+      resetConversation();
+      addMessage({
+          role: 'assistant',
+          content: `针对主题“${collectedInfo.topic}”为${collectedInfo.grade}学生设计的教案已生成！`,
+          resource: resourceData
+      });
+
+    } catch(error) {
+        console.error('Error generating or saving lesson plan:', error);
+        addMessage({
+            role: 'assistant',
+            content: '抱歉，处理教案时出错了，请稍后再试。'
+        });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
@@ -180,6 +246,7 @@ export const useChatLogic = () => {
     currentIntent,
     collectedInfo,
     handleGenerateLessonPlan,
+    handleGeneratePptOutline,
     planToShow,
     setPlanToShow,
     sendMessage,

@@ -126,7 +126,7 @@ export default {
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-        'slide-in-right': 'slide-in-right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+        'slide-in-right': 'slide-in-right 0.5s cubic-bezier(0.42, 0, 0.58, 1)',
         'fade-in': 'fade-in 0.5s ease-out'
 			}
 		}
