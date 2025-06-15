@@ -158,9 +158,23 @@ export const useChatLogic = () => {
 
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
+    
+    const subject = profile?.subject || '通用';
+    const textbook_edition = profile?.textbook_edition || '通用版本';
+    const teaching_object = profile?.teaching_object || '学生';
+    const long_term_goal = profile?.long_term_goal || '提升学科素养';
+
     try {
       const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-lesson-plan', {
-          body: collectedInfo, // pass topic, grade, objective
+          body: { 
+            topic: collectedInfo.topic,
+            grade: collectedInfo.grade,
+            objective: collectedInfo.objective,
+            subject,
+            textbook_edition,
+            teaching_object,
+            long_term_goal
+          },
       });
 
       if (functionError) throw functionError;
@@ -171,10 +185,16 @@ export const useChatLogic = () => {
           .from('teaching_resources')
           .insert({
               user_id: user!.id,
-              title: `为“${(collectedInfo as any).topic}”创建的教案`,
+              title: `《${collectedInfo.topic}》教案设计`,
               content: lessonPlan,
               resource_type: 'lesson_plan',
-              metadata: collectedInfo as any,
+              metadata: {
+                ...collectedInfo,
+                subject,
+                textbook_edition,
+                teaching_object,
+                long_term_goal
+              } as any,
           })
           .select()
           .single();
@@ -185,7 +205,7 @@ export const useChatLogic = () => {
       resetConversation();
       addMessage({
           role: 'assistant',
-          content: `针对主题“${(collectedInfo as any).topic}”为${(collectedInfo as any).grade}学生设计的教案已生成！`,
+          content: `针对主题"${collectedInfo.topic}"为${collectedInfo.grade}学生设计的专业教案已生成！这份教案严格按照11个标准结构设计，体现了以学生为中心的教学理念。`,
           resource: resourceData
       });
 
