@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles } from "lucide-react";
+import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
@@ -189,30 +188,48 @@ const CourseDashboard = () => {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl w-full">
-            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
-              <CardHeader className="text-center">
-                <BookOpen className="h-8 w-8 text-primary mx-auto mb-2" />
-                <CardTitle className="text-lg">创建教案</CardTitle>
-                <CardDescription>为您的课程设计专业教案</CardDescription>
-              </CardHeader>
-            </Card>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-0 max-w-4xl w-full">
+            {/* Step 1 */}
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-8 h-8 mb-2 rounded-full bg-primary text-primary-foreground font-bold text-sm">1</div>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer w-56" onClick={() => setIsDialogOpen(true)}>
+                <CardHeader className="text-center p-4">
+                  <BookOpen className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <CardTitle className="text-base">创建教案</CardTitle>
+                  <CardDescription className="text-xs">为您的课程设计专业教案</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+
+            {/* Arrow */}
+            <ArrowRight className="w-8 h-8 text-muted-foreground mx-4 my-2 md:my-0 rotate-90 md:rotate-0" />
             
-            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
-              <CardHeader className="text-center">
-                <FileText className="h-8 w-8 text-primary mx-auto mb-2" />
-                <CardTitle className="text-lg">PPT大纲</CardTitle>
-                <CardDescription>生成课件演示大纲</CardDescription>
-              </CardHeader>
-            </Card>
+            {/* Step 2 */}
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-8 h-8 mb-2 rounded-full bg-primary text-primary-foreground font-bold text-sm">2</div>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer w-56" onClick={() => setIsDialogOpen(true)}>
+                <CardHeader className="text-center p-4">
+                  <FileText className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <CardTitle className="text-base">PPT大纲</CardTitle>
+                  <CardDescription className="text-xs">生成课件演示大纲</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
+
+            {/* Arrow */}
+            <ArrowRight className="w-8 h-8 text-muted-foreground mx-4 my-2 md:my-0 rotate-90 md:rotate-0" />
             
-            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
-              <CardHeader className="text-center">
-                <ImageIcon className="h-8 w-8 text-primary mx-auto mb-2" />
-                <CardTitle className="text-lg">生成插图</CardTitle>
-                <CardDescription>为教学内容创建配图</CardDescription>
-              </CardHeader>
-            </Card>
+            {/* Step 3 */}
+            <div className="flex flex-col items-center">
+              <div className="flex items-center justify-center w-8 h-8 mb-2 rounded-full bg-primary text-primary-foreground font-bold text-sm">3</div>
+              <Card className="hover:shadow-md transition-shadow cursor-pointer w-56" onClick={() => setIsDialogOpen(true)}>
+                <CardHeader className="text-center p-4">
+                  <ImageIcon className="h-8 w-8 text-primary mx-auto mb-2" />
+                  <CardTitle className="text-base">生成插图</CardTitle>
+                  <CardDescription className="text-xs">为教学内容创建配图</CardDescription>
+                </CardHeader>
+              </Card>
+            </div>
           </div>
         </div>
       ) : (
