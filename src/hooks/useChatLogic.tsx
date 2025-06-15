@@ -50,7 +50,7 @@ export const useChatLogic = () => {
   };
 
   const sendMessage = async (messageContent: string) => {
-    if (!messageContent.trim()) return;
+    if (isLoading || !messageContent.trim()) return;
 
     if (!user) {
         openAuthDialog();
@@ -58,10 +58,12 @@ export const useChatLogic = () => {
     }
 
     const userMessage: Message = { role: 'user', content: messageContent };
-    addMessage(userMessage);
+    
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
     setIsLoading(true);
 
-    const history = [...messages, userMessage].slice(1).map(({role, content}) => ({role, content}));
+    const history = newMessages.slice(1).map(({role, content}) => ({role, content}));
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-chat', {
