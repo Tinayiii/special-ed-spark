@@ -99,6 +99,8 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          subject: string | null
+          textbook_edition: string | null
           updated_at: string | null
         }
         Insert: {
@@ -107,6 +109,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id: string
+          subject?: string | null
+          textbook_edition?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -115,6 +119,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          subject?: string | null
+          textbook_edition?: string | null
           updated_at?: string | null
         }
         Relationships: []
