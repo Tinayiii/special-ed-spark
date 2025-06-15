@@ -13,7 +13,7 @@ const Dashboard = () => {
     e.preventDefault();
     if (prompt.trim()) {
       // We can pass the prompt in the future, for now just navigate
-      navigate(`/chat`);
+      navigate(`/chat`, { state: { initialPrompt: prompt } });
     }
   };
 
