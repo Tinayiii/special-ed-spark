@@ -9,7 +9,6 @@ export const useChatLogic = () => {
   const { user, profile, openAuthDialog } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const initialPromptFromState = location.state?.initialPrompt;
 
   const [messages, setMessages] = useState<(Message & { resource?: Tables<'teaching_resources'> | null })[]>([
     {
@@ -107,11 +106,17 @@ export const useChatLogic = () => {
   };
 
   useEffect(() => {
-    if (initialPromptFromState) {
-      sendMessage(initialPromptFromState);
+    const state = location.state as { initialPrompt?: string, resumeTask?: string } | null;
+    if (state?.initialPrompt) {
+      sendMessage(state.initialPrompt);
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (state?.resumeTask) {
+      console.log('Resuming task:', state.resumeTask);
+      addMessage({ role: 'assistant', content: `好的，让我们继续之前的任务。` });
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [initialPromptFromState]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   const handleCloseCanvas = () => {
     setIsCanvasOpen(false);

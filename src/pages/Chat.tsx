@@ -1,6 +1,5 @@
 
-import React, { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import React from 'react';
 import { cn } from "@/lib/utils";
 import Canvas from '@/components/Canvas';
 import LessonPlanDialog from '@/components/LessonPlanDialog';
@@ -14,7 +13,6 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 
 const Chat = () => {
-  const location = useLocation();
   const {
     messages,
     input,
@@ -31,22 +29,6 @@ const Chat = () => {
     sendMessage,
     resetToInitialState,
   } = useChatLogic();
-
-  // 处理从其他页面传递的初始提示或任务恢复
-  useEffect(() => {
-    const { initialPrompt, resumeTask } = location.state || {};
-    
-    if (initialPrompt) {
-      sendMessage(initialPrompt);
-      // 清除state以避免重复执行
-      window.history.replaceState({}, document.title);
-    } else if (resumeTask) {
-      // 这里可以实现任务恢复逻辑
-      // 暂时显示提示信息
-      console.log('Resuming task:', resumeTask);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
