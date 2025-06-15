@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles, ArrowRight } from "lucide-react";
+import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles, ArrowRight, Send } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
@@ -17,7 +18,7 @@ const CourseDashboard = () => {
   const [courses, setCourses] = useState<Tables<'teaching_resources'>[]>([]);
   const [recentTasks, setRecentTasks] = useState<Tables<'teaching_resources'>[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [dialogInput, setDialogInput] = useState("");
+  const [promptInput, setPromptInput] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -58,10 +59,10 @@ const CourseDashboard = () => {
   };
 
   const handleStartConversation = () => {
-    if (dialogInput.trim()) {
+    if (promptInput.trim()) {
       setIsDialogOpen(false);
-      navigate('/chat', { state: { initialPrompt: dialogInput } });
-      setDialogInput("");
+      navigate('/chat', { state: { initialPrompt: promptInput } });
+      setPromptInput("");
     }
   };
 
@@ -120,8 +121,8 @@ const CourseDashboard = () => {
                   </label>
                   <Textarea
                     placeholder="例如：帮我创建一个关于春天的语文教案，适合二年级学生..."
-                    value={dialogInput}
-                    onChange={(e) => setDialogInput(e.target.value)}
+                    value={promptInput}
+                    onChange={(e) => setPromptInput(e.target.value)}
                     rows={4}
                   />
                 </div>
@@ -129,7 +130,7 @@ const CourseDashboard = () => {
                   <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                     取消
                   </Button>
-                  <Button onClick={handleStartConversation} disabled={!dialogInput.trim()}>
+                  <Button onClick={handleStartConversation} disabled={!promptInput.trim()}>
                     <MessageSquare className="mr-2 h-4 w-4" />
                     开始对话
                   </Button>
@@ -179,15 +180,35 @@ const CourseDashboard = () => {
 
       {courses.length === 0 ? (
         // 空状态 - 引导用户开始
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="text-center mb-8">
-            <Sparkles className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">欢迎来到特教之光</h2>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              您还没有创建任何教学资源。让我来帮您开始第一个教学任务吧！
-            </p>
-          </div>
+        <div className="flex flex-col items-center justify-center text-center py-16">
+          <Sparkles className="h-16 w-16 text-primary mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">欢迎来到特教之光</h2>
+          <p className="text-muted-foreground mb-6 max-w-md">
+            您还没有创建任何教学资源。让我来帮您开始第一个教学任务吧！
+          </p>
           
+          {/* New Conversation Input */}
+          <div className="w-full max-w-xl mx-auto mb-12">
+             <div className="relative">
+                <Textarea
+                  placeholder="可以直接向我提问，例如：帮我创建一个关于春天的语文教案..."
+                  value={promptInput}
+                  onChange={(e) => setPromptInput(e.target.value)}
+                  rows={3}
+                  className="pr-24 text-base"
+                />
+                <Button 
+                  onClick={handleStartConversation} 
+                  disabled={!promptInput.trim()}
+                  className="absolute bottom-2.5 right-2.5"
+                  size="sm"
+                >
+                  <Send className="h-4 w-4 mr-2"/>
+                  开始
+                </Button>
+             </div>
+          </div>
+
           <div className="flex flex-col md:flex-row items-center justify-center gap-4 md:gap-0 max-w-4xl w-full">
             {/* Step 1 */}
             <div className="flex flex-col items-center">
