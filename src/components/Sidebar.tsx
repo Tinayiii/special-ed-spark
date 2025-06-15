@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { Home, Book, Image as ImageIcon, Sparkles } from "lucide-react";
+import { Home, Book, Image as ImageIcon, Sparkles, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
@@ -33,11 +33,15 @@ const Sidebar = () => {
         <Sparkles className="h-10 w-10 text-primary" />
         <h1 className="ml-3 text-2xl font-display font-bold">特教之光</h1>
       </div>
-      <nav className="flex flex-col space-y-3">
+      <nav className="flex flex-col space-y-3 flex-grow">
         {navItems.map((item) => (
           <NavItem key={item.to} {...item} />
         ))}
       </nav>
+      <div className="border-t -mx-6 my-4"></div>
+      <div>
+        <NavItem to="/settings" icon={Settings} label="设置" />
+      </div>
     </aside>
   );
 };

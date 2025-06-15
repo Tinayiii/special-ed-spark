@@ -9,6 +9,8 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import LessonPlanner from "./pages/LessonPlanner";
 import ImageEditor from "./pages/ImageEditor";
+import Settings from "./pages/Settings";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
             <Route path="/" element={<Dashboard />} />
             <Route path="/lesson-planner" element={<LessonPlanner />} />
             <Route path="/image-editor" element={<ImageEditor />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/chat" element={<Chat />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
