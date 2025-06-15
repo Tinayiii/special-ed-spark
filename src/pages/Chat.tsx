@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Send, Sparkles } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { recognizeIntent } from '@/lib/intent-recognition';
+import { getLLMResponse } from '@/services/aiService';
+import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
 
-interface Message {
-  role: 'user' | 'assistant';
-  content: string;
-}
 
 const Chat = () => {
   const location = useLocation();
@@ -20,12 +19,20 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: '你好！我是您的特教之光AI助手，有什么可以帮助您的吗？'
+      content: '你好！我是您的特教之光AI助手，有什么可以帮助您的吗？例如：帮我创建一个关于春天的教案。'
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // New state for conversation management
+  const [conversationPhase, setConversationPhase] = useState<ConversationPhase>('greeting');
+  const [currentIntent, setCurrentIntent] = useState<Intent | null>(null);
+  const [collectedInfo, setCollectedInfo] = useState<TeachingInfo>({});
+  const [requiredFields, setRequiredFields] = useState<Array<keyof TeachingInfo>>([]);
+  const [currentQuestion, setCurrentQuestion] = useState<keyof TeachingInfo | null>(null);
+
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,32 +42,107 @@ const Chat = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
+  const addMessage = (message: Message) => {
+    setMessages(prev => [...prev, message]);
+  };
+  
+  const processAssistantResponse = async (userMessageContent: string) => {
+    setIsLoading(true);
+    let assistantResponseContent = '';
+
+    if (conversationPhase === 'greeting' || conversationPhase === 'intent-recognition') {
+        const intent = recognizeIntent(userMessageContent);
+        setCurrentIntent(intent);
+
+        if (intent === 'greeting') {
+            assistantResponseContent = '你好！很高兴为您服务，请问我能帮您做什么？';
+            setConversationPhase('intent-recognition');
+        } else if (intent === 'unknown') {
+            assistantResponseContent = '抱歉，我不太理解您的意思。您可以试试说“帮我生成一个教案”或者“创建一张关于夏天的图片”。';
+            setConversationPhase('intent-recognition');
+        } else {
+            setConversationPhase('information-gathering');
+            const fields: Array<keyof TeachingInfo> = ['topic', 'grade', 'objective'];
+            setRequiredFields(fields);
+            setCollectedInfo({});
+            const firstQuestion = fields[0];
+            setCurrentQuestion(firstQuestion);
+            assistantResponseContent = getQuestionText(firstQuestion, intent);
+        }
+    } else if (conversationPhase === 'information-gathering') {
+        const newCollectedInfo = { ...collectedInfo, [currentQuestion!]: userMessageContent };
+        setCollectedInfo(newCollectedInfo);
+
+        const currentIndex = requiredFields.indexOf(currentQuestion!);
+        const nextIndex = currentIndex + 1;
+
+        if (nextIndex < requiredFields.length) {
+            const nextQuestion = requiredFields[nextIndex];
+            setCurrentQuestion(nextQuestion);
+            assistantResponseContent = getQuestionText(nextQuestion, currentIntent!);
+        } else {
+            setConversationPhase('task-fulfillment');
+            assistantResponseContent = `好的，信息收集完毕：\n- 主题: ${newCollectedInfo.topic}\n- 年级: ${newCollectedInfo.grade}\n- 目标: ${newCollectedInfo.objective}\n\n正在为您生成${getIntentText(currentIntent!)}...`;
+            addMessage({ role: 'assistant', content: assistantResponseContent });
+            
+            const finalResponse = await getLLMResponse([
+                ...messages,
+                { role: 'user', content: userMessageContent },
+                { role: 'assistant', content: assistantResponseContent }
+            ]);
+            addMessage({ role: 'assistant', content: finalResponse });
+            
+            resetConversation();
+            setIsLoading(false);
+            return;
+        }
+    }
+    
+    addMessage({ role: 'assistant', content: assistantResponseContent });
+    setIsLoading(false);
+  };
+  
+  const getQuestionText = (field: keyof TeachingInfo, intent: Intent): string => {
+    switch (field) {
+        case 'topic': return `好的，我们开始吧！请告诉我${getIntentText(intent)}的主题是什么？`;
+        case 'grade': return '明白了。这个任务是为哪个年级的学生准备的？';
+        case 'objective': return '好的。这次教学或活动的主要目标是什么？';
+        default: return '还需要什么信息？';
+    }
+  };
+  
+  const getIntentText = (intent: Intent): string => {
+    switch (intent) {
+        case 'lesson-plan': return '教案';
+        case 'image-generation': return '图片';
+        case 'ppt-creation': return 'PPT';
+        default: return '任务';
+    }
+  };
+  
+  const resetConversation = () => {
+    setConversationPhase('greeting');
+    setCurrentIntent(null);
+    setCollectedInfo({});
+    setRequiredFields([]);
+    setCurrentQuestion(null);
+  };
+
   const sendMessage = (messageContent: string) => {
     if (!messageContent.trim()) return;
 
     const userMessage: Message = { role: 'user', content: messageContent };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
+    addMessage(userMessage);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        role: 'assistant',
-        content: `你刚才说的是：“${messageContent}”。我现在还是一个简单的机器人，但很快我就会变得更智能！`
-      };
-      setMessages(prev => [...prev, aiResponse]);
-      setIsLoading(false);
-    }, 1500);
-  }
+    processAssistantResponse(messageContent);
+  };
 
   useEffect(() => {
     if (initialPrompt) {
       sendMessage(initialPrompt);
-      // Clear location state to prevent re-sending on re-render
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [initialPrompt, navigate, location.pathname]);
+  }, [initialPrompt]);
 
 
   const handleSubmit = (e: React.FormEvent) => {
