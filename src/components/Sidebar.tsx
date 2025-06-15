@@ -15,7 +15,7 @@ const Sidebar = () => {
       to={to}
       className={({ isActive }) =>
         cn(
-          "flex items-center px-4 py-3 text-lg font-medium rounded-lg transition-colors",
+          "flex items-center px-4 py-3 text-base font-medium rounded-lg transition-colors",
           isActive
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -31,7 +31,7 @@ const Sidebar = () => {
     <aside className="w-64 flex-shrink-0 bg-card border-r p-6 flex flex-col">
       <div className="flex items-center mb-12 px-2">
         <Sparkles className="h-10 w-10 text-primary" />
-        <h1 className="ml-3 text-2xl font-display font-bold">特教之光</h1>
+        <h1 className="ml-3 text-26 font-medium leading-1.4">特教之光</h1>
       </div>
       <nav className="flex flex-col space-y-3 flex-grow">
         {navItems.map((item) => (

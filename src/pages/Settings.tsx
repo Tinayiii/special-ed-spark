@@ -9,7 +9,7 @@ const Settings = () => {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-4xl font-bold font-display text-gray-800">设置</h1>
+        <h1 className="text-34 font-medium leading-1.3 text-gray-800">设置</h1>
         <p className="text-xl text-muted-foreground mt-2">在这里管理您的教学偏好，这些信息将被用于生成更个性化的内容。</p>
       </div>
       

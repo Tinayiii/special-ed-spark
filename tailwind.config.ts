@@ -20,8 +20,29 @@ export default {
 		},
 		extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
-        display: ['Poppins', 'sans-serif'],
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "'Helvetica Neue'",
+          "Helvetica",
+          "Arial",
+          "'PingFang SC'",
+          "'Hiragino Sans GB'",
+          "'Microsoft Yahei'",
+          "STHeiti",
+          "SimSun",
+          "sans-serif",
+        ],
+      },
+      fontSize: {
+        '26': '1.625rem', // 26px
+        '34': '2.125rem', // 34px
+        '44': '2.75rem',  // 44px
+      },
+      lineHeight: {
+        '1.2': '1.2',
+        '1.3': '1.3',
+        '1.4': '1.4',
       },
 			colors: {
 				border: 'hsl(var(--border))',

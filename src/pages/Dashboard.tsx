@@ -20,7 +20,7 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-4">
       <div className="w-full max-w-3xl flex-grow flex flex-col justify-center">
-        <h1 className="text-5xl font-bold font-display text-gray-800 mb-6 animate-fade-in-down">
+        <h1 className="text-44 font-medium leading-1.2 text-gray-800 mb-6 animate-fade-in-down">
           我能为您做什么？
         </h1>
         
@@ -29,7 +29,7 @@ const Dashboard = () => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="给“特教之光”一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
-            className="w-full p-4 pr-16 text-lg rounded-2xl shadow-lg focus-visible:ring-2 focus-visible:ring-primary/50 transition-shadow min-h-[60px] resize-none"
+            className="w-full p-4 pr-16 text-base rounded-2xl shadow-lg focus-visible:ring-2 focus-visible:ring-primary/50 transition-shadow min-h-[60px] resize-none"
             rows={1}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
