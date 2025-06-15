@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { X, Wand2 } from 'lucide-react';
+import { X, Wand2, UploadCloud } from 'lucide-react';
 import { Intent, TeachingInfo } from '@/types/chat';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,8 @@ const ImageGenCanvas = ({ data }: { data: TeachingInfo }) => {
     const [dimensions, setDimensions] = useState(aspectRatios["1:1"]);
     const [realism, setRealism] = useState(70); // 0 is flat, 100 is realistic
     const [composition, setComposition] = useState(70); // 0 is background, 100 is subject
+    const [referenceImage, setReferenceImage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleAspectRatioChange = (value: string) => {
         if (value && aspectRatios[value]) {
@@ -45,6 +47,29 @@ const ImageGenCanvas = ({ data }: { data: TeachingInfo }) => {
         }
     }
 
+    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setReferenceImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const removeReferenceImage = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation();
+        setReferenceImage(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
              <div>
@@ -57,6 +82,41 @@ const ImageGenCanvas = ({ data }: { data: TeachingInfo }) => {
                     rows={4}
                     placeholder="例如：把背景换成有长城的中国北方风光，再加一只熊猫。"
                 />
+            </div>
+            
+            <div>
+                <Label className="text-base font-semibold">参考图 (可选)</Label>
+                <div 
+                    className="mt-2 flex justify-center items-center w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/30 hover:border-primary transition-colors cursor-pointer bg-muted/20 relative group"
+                    onClick={handleUploadClick}
+                >
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleImageUpload} 
+                        className="hidden" 
+                        accept="image/png, image/jpeg, image/webp"
+                    />
+                    {referenceImage ? (
+                        <div className="relative w-full h-full p-2">
+                             <img src={referenceImage} alt="参考图预览" className="w-full h-full object-contain rounded-md" />
+                             <Button
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={removeReferenceImage}
+                             >
+                                 <X className="h-4 w-4" />
+                             </Button>
+                        </div>
+                    ) : (
+                        <div className="text-center text-muted-foreground p-4">
+                            <UploadCloud className="mx-auto h-8 w-8" />
+                            <p className="mt-2 text-sm">拖拽图片到这里，或点击上传</p>
+                            <p className="text-xs">支持 JPG, PNG, WEBP</p>
+                        </div>
+                    )}
+                </div>
             </div>
             
             <div>
