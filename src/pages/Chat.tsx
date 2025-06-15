@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Sparkles, Eye } from 'lucide-react';
+import { Send, Sparkles, Eye, ArrowUp, Book, Image as ImageIcon } from 'lucide-react';
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { recognizeIntent } from '@/lib/intent-recognition';
@@ -11,11 +11,12 @@ import { Message, Intent, ConversationPhase, TeachingInfo } from '@/types/chat';
 import Canvas from '@/components/Canvas';
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import LessonPlanDialog from '@/components/LessonPlanDialog';
+import { Textarea } from '@/components/ui/textarea';
 
 const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const initialPrompt = location.state?.initialPrompt;
+  const initialPromptFromState = location.state?.initialPrompt;
 
   const [messages, setMessages] = useState<(Message & { lessonPlan?: string })[]>([
     {
@@ -24,6 +25,7 @@ const Chat = () => {
     }
   ]);
   const [input, setInput] = useState('');
+  const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -138,11 +140,11 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    if (initialPrompt) {
-      sendMessage(initialPrompt);
+    if (initialPromptFromState) {
+      sendMessage(initialPromptFromState);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [initialPrompt]);
+  }, [initialPromptFromState, navigate, location.pathname]);
 
   const handleCloseCanvas = () => {
     setIsCanvasOpen(false);
@@ -182,6 +184,14 @@ const Chat = () => {
     }, 2000);
   };
 
+  const handleWelcomeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (prompt.trim()) {
+      sendMessage(prompt);
+      setPrompt('');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
@@ -197,94 +207,151 @@ const Chat = () => {
             "flex flex-col h-full bg-muted/20 transition-all duration-500 ease-in-out",
             isCanvasOpen ? 'w-full lg:w-2/3' : 'w-full'
         )}>
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {messages.map((message, index) => (
-                  message.lessonPlan ? (
-                    <div key={index} className="flex items-start gap-4 justify-start">
-                         <Avatar className="w-10 h-10 border">
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                            <Sparkles className="w-6 h-6" />
-                            </AvatarFallback>
-                        </Avatar>
-                        <Card className="max-w-md md:max-w-lg lg:max-w-xl animate-fade-in">
-                            <CardHeader>
-                                <CardTitle>教案已生成</CardTitle>
-                                <CardDescription>{message.content}</CardDescription>
-                            </CardHeader>
-                            <CardFooter>
-                                <Button className="w-full" onClick={() => setPlanToShow(message.lessonPlan || null)}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    查看详情
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    </div>
-                ) : (
-                  <div
-                      key={index}
-                      className={cn(
-                      "flex items-start gap-4",
-                      message.role === 'user' ? 'justify-end' : 'justify-start'
-                      )}
-                  >
-                      {message.role === 'assistant' && (
-                      <Avatar className="w-10 h-10 border">
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                          <Sparkles className="w-6 h-6" />
-                          </AvatarFallback>
-                      </Avatar>
-                      )}
-                      <div
-                      className={cn(
-                          "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
-                          message.role === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-br-none'
-                          : 'bg-card text-card-foreground rounded-bl-none'
-                      )}
-                      >
-                      <p className="whitespace-pre-wrap">{message.content}</p>
-                      </div>
-                      {message.role === 'user' && (
-                      <Avatar className="w-10 h-10 border">
-                          <AvatarFallback>您</AvatarFallback>
-                      </Avatar>
-                      )}
-                  </div>
-                )
-                ))}
-                {isLoading && (
-                  <div className="flex items-start gap-4 justify-start">
-                    <Avatar className="w-10 h-10 border">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                        <Sparkles className="w-6 h-6" />
-                        </AvatarFallback>
-                    </Avatar>
-                    <div className="bg-card text-card-foreground rounded-xl px-4 py-3 text-base shadow-sm rounded-bl-none">
-                        <div className="flex items-center gap-2">
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.3s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.15s]"></span>
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse"></span>
+            {messages.length <= 1 && !isCanvasOpen ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                    <div className="w-full max-w-3xl flex-grow flex flex-col justify-center">
+                        <h1 className="text-44 font-medium leading-1.2 text-gray-800 mb-6 animate-fade-in-down">
+                        我能为您做什么？
+                        </h1>
+                        
+                        <form onSubmit={handleWelcomeSubmit} className="relative w-full mb-6">
+                          <Textarea
+                              value={prompt}
+                              onChange={(e) => setPrompt(e.target.value)}
+                              placeholder="给“特教之光”一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
+                              className="w-full p-4 pr-16 text-base rounded-2xl shadow-lg focus-visible:ring-2 focus-visible:ring-primary/50 transition-shadow min-h-[60px] resize-none"
+                              rows={1}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                  e.preventDefault();
+                                  handleWelcomeSubmit(e as unknown as React.FormEvent);
+                                }
+                              }}
+                          />
+                          <Button
+                              type="submit"
+                              size="icon"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg h-11 w-11 bg-primary hover:bg-primary/90 disabled:bg-primary/50"
+                              disabled={!prompt.trim()}
+                          >
+                              <ArrowUp className="h-5 w-5" />
+                          </Button>
+                        </form>
+
+                        <div className="flex items-center justify-center gap-3">
+                          <span className="text-muted-foreground text-sm">或者试试这些：</span>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to="/lesson-planner">
+                              <Book className="mr-2 h-4 w-4" />
+                              生成教案
+                            </Link>
+                          </Button>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to="/image-editor">
+                              <ImageIcon className="mr-2 h-4 w-4" />
+                              修改插图
+                            </Link>
+                          </Button>
                         </div>
                     </div>
+                    <div className="pb-4">
+                        <a href="#more-use-cases" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                        探索更多使用案例
+                        </a>
+                    </div>
                 </div>
-                )}
-                <div ref={messagesEndRef} />
-            </div>
+            ) : (
+                <>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {messages.map((message, index) => (
+                          message.lessonPlan ? (
+                            <div key={index} className="flex items-start gap-4 justify-start">
+                                <Avatar className="w-10 h-10 border">
+                                    <AvatarFallback className="bg-primary text-primary-foreground">
+                                    <Sparkles className="w-6 h-6" />
+                                    </AvatarFallback>
+                                </Avatar>
+                                <Card className="max-w-md md:max-w-lg lg:max-w-xl animate-fade-in">
+                                    <CardHeader>
+                                        <CardTitle>教案已生成</CardTitle>
+                                        <CardDescription>{message.content}</CardDescription>
+                                    </CardHeader>
+                                    <CardFooter>
+                                        <Button className="w-full" onClick={() => setPlanToShow(message.lessonPlan || null)}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            查看详情
+                                        </Button>
+                                    </CardFooter>
+                                </Card>
+                            </div>
+                        ) : (
+                          <div
+                              key={index}
+                              className={cn(
+                              "flex items-start gap-4",
+                              message.role === 'user' ? 'justify-end' : 'justify-start'
+                              )}
+                          >
+                              {message.role === 'assistant' && (
+                              <Avatar className="w-10 h-10 border">
+                                  <AvatarFallback className="bg-primary text-primary-foreground">
+                                  <Sparkles className="w-6 h-6" />
+                                  </AvatarFallback>
+                              </Avatar>
+                              )}
+                              <div
+                              className={cn(
+                                  "max-w-md md:max-w-lg lg:max-w-xl rounded-xl px-4 py-3 text-base shadow-sm",
+                                  message.role === 'user'
+                                  ? 'bg-primary text-primary-foreground rounded-br-none'
+                                  : 'bg-card text-card-foreground rounded-bl-none'
+                              )}
+                              >
+                              <p className="whitespace-pre-wrap">{message.content}</p>
+                              </div>
+                              {message.role === 'user' && (
+                              <Avatar className="w-10 h-10 border">
+                                  <AvatarFallback>您</AvatarFallback>
+                              </Avatar>
+                              )}
+                          </div>
+                        )
+                        ))}
+                        {isLoading && (
+                          <div className="flex items-start gap-4 justify-start">
+                            <Avatar className="w-10 h-10 border">
+                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                <Sparkles className="w-6 h-6" />
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="bg-card text-card-foreground rounded-xl px-4 py-3 text-base shadow-sm rounded-bl-none">
+                                <div className="flex items-center gap-2">
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.3s]"></span>
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse [animation-delay:-0.15s]"></span>
+                                <span className="h-2 w-2 bg-muted-foreground rounded-full animate-pulse"></span>
+                                </div>
+                            </div>
+                        </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
 
-            <div className="p-4 bg-card border-t">
-                <form onSubmit={handleSubmit} className="flex items-center gap-3">
-                <Input
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="与 AI 助手对话..."
-                    className="flex-1"
-                    disabled={isLoading || isCanvasOpen}
-                />
-                <Button type="submit" size="icon" disabled={!input.trim() || isLoading || isCanvasOpen}>
-                    <Send className="h-4 w-4" />
-                </Button>
-                </form>
-            </div>
+                    <div className="p-4 bg-card border-t">
+                        <form onSubmit={handleSubmit} className="flex items-center gap-3">
+                        <Input
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="与 AI 助手对话..."
+                            className="flex-1"
+                            disabled={isLoading || isCanvasOpen}
+                        />
+                        <Button type="submit" size="icon" disabled={!input.trim() || isLoading || isCanvasOpen}>
+                            <Send className="h-4 w-4" />
+                        </Button>
+                        </form>
+                    </div>
+                </>
+            )}
         </div>
 
         {/* Canvas Panel */}

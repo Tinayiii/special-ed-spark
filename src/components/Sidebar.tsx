@@ -1,20 +1,18 @@
-
 import { NavLink } from "react-router-dom";
-import { Home, Book, Image as ImageIcon, Sparkles, Settings, LayoutGrid, MessageSquare } from "lucide-react";
+import { Home, Book, Image as ImageIcon, Sparkles, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
   const navItems = [
     { to: "/", icon: Home, label: "主页" },
-    { to: "/course-dashboard", icon: LayoutGrid, label: "课程看板" },
     { to: "/lesson-planner", icon: Book, label: "教案生成" },
     { to: "/image-editor", icon: ImageIcon, label: "插图修改" },
-    { to: "/chat", icon: MessageSquare, label: "AI 助手" },
   ];
 
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string; }) => (
     <NavLink
       to={to}
+      end={to === "/"}
       className={({ isActive }) =>
         cn(
           "flex items-center px-4 py-3 text-base font-medium rounded-lg transition-colors",
