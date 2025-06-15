@@ -1,5 +1,6 @@
+
 import { NavLink } from "react-router-dom";
-import { Home, Book, Image as ImageIcon, Sparkles, Settings } from "lucide-react";
+import { Home, Book, Image as ImageIcon, Sparkles, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
@@ -7,6 +8,7 @@ const Sidebar = () => {
     { to: "/", icon: Home, label: "主页" },
     { to: "/lesson-planner", icon: Book, label: "教案生成" },
     { to: "/image-editor", icon: ImageIcon, label: "插图修改" },
+    { to: "/community", icon: Users, label: "社区" },
   ];
 
   const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string; }) => (

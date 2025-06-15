@@ -14,6 +14,7 @@ import ImageEditor from "./pages/ImageEditor";
 import Settings from "./pages/Settings";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
+import Community from "./pages/Community";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/image-editor" element={<ImageEditor />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/community" element={<Community />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
