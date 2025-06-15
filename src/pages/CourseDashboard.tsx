@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles, ArrowRight, Send } from "lucide-react";
+import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles, ArrowRight, Send, ArrowUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
@@ -19,6 +19,8 @@ const CourseDashboard = () => {
   const [recentTasks, setRecentTasks] = useState<Tables<'teaching_resources'>[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [promptInput, setPromptInput] = useState("");
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const resourcesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -26,6 +28,29 @@ const CourseDashboard = () => {
       fetchRecentTasks();
     }
   }, [user]);
+
+  useEffect(() => {
+    // For users with courses, auto-scroll to their resources.
+    if (courses.length > 0) {
+      setTimeout(() => {
+        resourcesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [courses]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 200) {
+        setShowScrollTop(true);
+      } else {
+        setShowScrollTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
 
   const fetchCourses = async () => {
     try {
@@ -66,6 +91,13 @@ const CourseDashboard = () => {
     }
   };
 
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  };
+
   const getResourceIcon = (type: string) => {
     switch (type) {
       case 'lesson_plan':
@@ -93,7 +125,7 @@ const CourseDashboard = () => {
   };
 
   return (
-    <div className="p-6 md:p-8 h-full bg-background">
+    <div className="p-6 md:p-8 h-full bg-background relative">
       <header className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -255,7 +287,7 @@ const CourseDashboard = () => {
         </div>
       ) : (
         // 有内容时的卡片展示
-        <div>
+        <div ref={resourcesRef}>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">我的教学资源</h2>
             <p className="text-sm text-muted-foreground">共 {courses.length} 个资源</p>
@@ -297,6 +329,18 @@ const CourseDashboard = () => {
             ))}
           </div>
         </div>
+      )}
+
+      {courses.length > 0 && showScrollTop && (
+        <Button
+          onClick={scrollToTop}
+          className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 rounded-full h-12 w-12 shadow-lg"
+          variant="default"
+          size="icon"
+        >
+          <ArrowUp className="h-6 w-6" />
+          <span className="sr-only">回到顶部</span>
+        </Button>
       )}
     </div>
   );
