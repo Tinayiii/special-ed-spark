@@ -35,6 +35,21 @@ export const useChatLogic = () => {
     setIsCanvasOpen(false);
   };
 
+  const resetToInitialState = () => {
+    setMessages([
+      {
+        role: 'assistant',
+        content: '你好！我是你的特教之光AI助手Lily，有什么可以帮助你的吗？例如：帮我创建一个关于春天的教案。'
+      }
+    ]);
+    setInput('');
+    setIsLoading(false);
+    setCollectedInfo({});
+    setCurrentIntent(null);
+    setIsCanvasOpen(false);
+    setPlanToShow(null);
+  };
+
   const sendMessage = async (messageContent: string) => {
     if (!messageContent.trim()) return;
 
@@ -330,5 +345,6 @@ export const useChatLogic = () => {
     planToShow,
     setPlanToShow,
     sendMessage,
+    resetToInitialState,
   };
 };

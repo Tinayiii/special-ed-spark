@@ -1,169 +1,265 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Search, PlusCircle } from "lucide-react";
 
-const coursesData = [
-  {
-    id: "C001",
-    name: "春天的识字课",
-    subject: "语文",
-    grade: "二年级",
-    lessonPlans: 3,
-    images: 12,
-    files: 5,
-    lastModified: "2025-06-14",
-  },
-  {
-    id: "C002",
-    name: "认识分数",
-    subject: "数学",
-    grade: "三年级",
-    lessonPlans: 2,
-    images: 8,
-    files: 3,
-    lastModified: "2025-06-12",
-  },
-  {
-    id: "C003",
-    name: "色彩的魔力",
-    subject: "美术",
-    grade: "一年级",
-    lessonPlans: 5,
-    images: 25,
-    files: 2,
-    lastModified: "2025-06-10",
-  },
-  {
-    id: "C004",
-    name: "My Family",
-    subject: "英语",
-    grade: "四年级",
-    lessonPlans: 1,
-    images: 10,
-    files: 4,
-    lastModified: "2025-06-09",
-  },
-  {
-    id: "C005",
-    name: "夏天的故事",
-    subject: "语文",
-    grade: "二年级",
-    lessonPlans: 4,
-    images: 15,
-    files: 6,
-    lastModified: "2025-06-15",
-  },
-];
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { PlusCircle, MessageSquare, BookOpen, Image as ImageIcon, FileText, Clock, Sparkles } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Tables } from "@/integrations/supabase/types";
 
 const CourseDashboard = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSubject, setSelectedSubject] = useState("all");
-  const [selectedGrade, setSelectedGrade] = useState("all");
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [courses, setCourses] = useState<Tables<'teaching_resources'>[]>([]);
+  const [recentTasks, setRecentTasks] = useState<Tables<'teaching_resources'>[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogInput, setDialogInput] = useState("");
 
-  const subjects = [...new Set(coursesData.map((c) => c.subject))];
-  const grades = [...new Set(coursesData.map((c) => c.grade))].sort();
+  useEffect(() => {
+    if (user) {
+      fetchCourses();
+      fetchRecentTasks();
+    }
+  }, [user]);
 
-  const filteredCourses = coursesData.filter((course) => {
-    const matchesSearch = course.name
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesSubject =
-      selectedSubject === "all" || course.subject === selectedSubject;
-    const matchesGrade =
-      selectedGrade === "all" || course.grade === selectedGrade;
-    return matchesSearch && matchesSubject && matchesGrade;
-  });
+  const fetchCourses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teaching_resources')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setCourses(data || []);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    }
+  };
+
+  const fetchRecentTasks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('teaching_resources')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (error) throw error;
+      setRecentTasks(data || []);
+    } catch (error) {
+      console.error('Error fetching recent tasks:', error);
+    }
+  };
+
+  const handleStartConversation = () => {
+    if (dialogInput.trim()) {
+      setIsDialogOpen(false);
+      navigate('/chat', { state: { initialPrompt: dialogInput } });
+      setDialogInput("");
+    }
+  };
+
+  const getResourceIcon = (type: string) => {
+    switch (type) {
+      case 'lesson_plan':
+        return <BookOpen className="h-5 w-5" />;
+      case 'ppt_outline':
+        return <FileText className="h-5 w-5" />;
+      case 'image_group':
+        return <ImageIcon className="h-5 w-5" />;
+      default:
+        return <FileText className="h-5 w-5" />;
+    }
+  };
+
+  const getResourceTypeLabel = (type: string) => {
+    switch (type) {
+      case 'lesson_plan':
+        return '教案';
+      case 'ppt_outline':
+        return 'PPT大纲';
+      case 'image_group':
+        return '图片';
+      default:
+        return '资源';
+    }
+  };
 
   return (
-    <div className="p-6 md:p-8 h-full flex flex-col bg-background">
-      <header className="flex items-center justify-between mb-6 flex-shrink-0">
-        <h1 className="text-26 font-medium">课程看板</h1>
-        <div className="flex items-center gap-3">
-          <Select value={selectedSubject} onValueChange={setSelectedSubject}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="选择科目" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">所有科目</SelectItem>
-              {subjects.map((subject) => (
-                <SelectItem key={subject} value={subject}>
-                  {subject}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedGrade} onValueChange={setSelectedGrade}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="选择年级" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">所有年级</SelectItem>
-              {grades.map((grade) => (
-                <SelectItem key={grade} value={grade}>
-                  {grade}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="搜索我的电子资产..."
-              className="pl-9 w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="p-6 md:p-8 h-full bg-background">
+      <header className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-26 font-medium mb-2">课程看板</h1>
+            <p className="text-muted-foreground">管理您的教学资源和开始新的任务</p>
           </div>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            新建课程单元
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                开始新任务
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle className="flex items-center">
+                  <Sparkles className="mr-2 h-5 w-5 text-primary" />
+                  开始新的教学任务
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">
+                    请描述您想要创建的教学内容：
+                  </label>
+                  <Textarea
+                    placeholder="例如：帮我创建一个关于春天的语文教案，适合二年级学生..."
+                    value={dialogInput}
+                    onChange={(e) => setDialogInput(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    取消
+                  </Button>
+                  <Button onClick={handleStartConversation} disabled={!dialogInput.trim()}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    开始对话
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
+
+        {/* 最近任务快速跳转 */}
+        {recentTasks.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-medium mb-3 flex items-center">
+              <Clock className="mr-2 h-5 w-5" />
+              最近的任务
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {recentTasks.map((task) => (
+                <Card key={task.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        {getResourceIcon(task.resource_type)}
+                        <Badge variant="secondary" className="text-xs">
+                          {getResourceTypeLabel(task.resource_type)}
+                        </Badge>
+                      </div>
+                    </div>
+                    <CardTitle className="text-sm line-clamp-2">{task.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full" 
+                      onClick={() => navigate('/chat', { state: { resumeTask: task.id } })}
+                    >
+                      继续任务
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </header>
 
-      <div className="border rounded-lg overflow-hidden flex-grow">
-        <div className="relative w-full overflow-auto h-full">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50 hover:bg-muted/50">
-                <TableHead className="w-[70%]">课程单元</TableHead>
-                <TableHead className="w-[15%]">年级</TableHead>
-                <TableHead className="text-right w-[15%]">操作</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCourses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-medium">{course.name}</TableCell>
-                  <TableCell>{course.grade}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link to={`/course/${course.id}`}>进入</Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+      {courses.length === 0 ? (
+        // 空状态 - 引导用户开始
+        <div className="flex flex-col items-center justify-center py-16">
+          <div className="text-center mb-8">
+            <Sparkles className="h-16 w-16 text-primary mx-auto mb-4" />
+            <h2 className="text-xl font-semibold mb-2">欢迎来到特教之光</h2>
+            <p className="text-muted-foreground mb-6 max-w-md">
+              您还没有创建任何教学资源。让我来帮您开始第一个教学任务吧！
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl w-full">
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
+              <CardHeader className="text-center">
+                <BookOpen className="h-8 w-8 text-primary mx-auto mb-2" />
+                <CardTitle className="text-lg">创建教案</CardTitle>
+                <CardDescription>为您的课程设计专业教案</CardDescription>
+              </CardHeader>
+            </Card>
+            
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
+              <CardHeader className="text-center">
+                <FileText className="h-8 w-8 text-primary mx-auto mb-2" />
+                <CardTitle className="text-lg">PPT大纲</CardTitle>
+                <CardDescription>生成课件演示大纲</CardDescription>
+              </CardHeader>
+            </Card>
+            
+            <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setIsDialogOpen(true)}>
+              <CardHeader className="text-center">
+                <ImageIcon className="h-8 w-8 text-primary mx-auto mb-2" />
+                <CardTitle className="text-lg">生成插图</CardTitle>
+                <CardDescription>为教学内容创建配图</CardDescription>
+              </CardHeader>
+            </Card>
+          </div>
         </div>
-      </div>
+      ) : (
+        // 有内容时的卡片展示
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold">我的教学资源</h2>
+            <p className="text-sm text-muted-foreground">共 {courses.length} 个资源</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses.map((course) => (
+              <Card key={course.id} className="hover:shadow-md transition-shadow">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      {getResourceIcon(course.resource_type)}
+                      <Badge variant="secondary">
+                        {getResourceTypeLabel(course.resource_type)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardTitle className="line-clamp-2">{course.title}</CardTitle>
+                  <CardDescription className="text-xs">
+                    创建于 {new Date(course.created_at).toLocaleDateString('zh-CN')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" className="flex-1">
+                      查看详情
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="flex-1"
+                      onClick={() => navigate('/chat', { state: { resumeTask: course.id } })}
+                    >
+                      继续编辑
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

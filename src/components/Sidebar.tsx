@@ -1,32 +1,47 @@
 
-import { NavLink } from "react-router-dom";
-import { Home, Book, Image as ImageIcon, Sparkles, Settings, Users, LayoutDashboard } from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { Home, Book, Image as ImageIcon, Sparkles, Settings, Users, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 const Sidebar = () => {
+  const location = useLocation();
+
   const navItems = [
     { to: "/", icon: Home, label: "主页" },
-    { to: "/course-dashboard", icon: LayoutDashboard, label: "课程看板" },
+    { to: "/chat", icon: MessageSquare, label: "智能对话", hasBadge: location.pathname === "/chat" },
     { to: "/lesson-planner", icon: Book, label: "教案生成" },
     { to: "/image-editor", icon: ImageIcon, label: "插图修改" },
     { to: "/community", icon: Users, label: "社区" },
   ];
 
-  const NavItem = ({ to, icon: Icon, label }: { to: string; icon: React.ElementType; label: string; }) => (
+  const NavItem = ({ to, icon: Icon, label, hasBadge }: { 
+    to: string; 
+    icon: React.ElementType; 
+    label: string; 
+    hasBadge?: boolean;
+  }) => (
     <NavLink
       to={to}
       end={to === "/"}
       className={({ isActive }) =>
         cn(
-          "flex items-center px-4 py-3 text-base font-medium rounded-lg transition-colors",
+          "flex items-center justify-between px-4 py-3 text-base font-medium rounded-lg transition-colors",
           isActive
             ? "bg-primary text-primary-foreground"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         )
       }
     >
-      <Icon className="mr-4 h-6 w-6" />
-      <span>{label}</span>
+      <div className="flex items-center">
+        <Icon className="mr-4 h-6 w-6" />
+        <span>{label}</span>
+      </div>
+      {hasBadge && (
+        <Badge variant="secondary" className="ml-2 h-5 text-xs">
+          活跃
+        </Badge>
+      )}
     </NavLink>
   );
 
