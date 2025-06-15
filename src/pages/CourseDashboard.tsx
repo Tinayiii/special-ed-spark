@@ -1,5 +1,5 @@
-
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -162,8 +162,8 @@ const CourseDashboard = () => {
                   <TableCell>{course.files} 个</TableCell>
                   <TableCell>{course.lastModified}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      进入
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/course/${course.id}`}>进入</Link>
                     </Button>
                   </TableCell>
                 </TableRow>
