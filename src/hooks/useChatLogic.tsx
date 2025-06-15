@@ -1,409 +1,125 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Message, Intent, TeachingInfo } from '@/types/chat';
-import { useAuth } from '@/contexts/AuthContext';
+
+import { useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { Message } from '@/types/chat';
+import { toast } from 'sonner';
+
+interface CollectedInfo {
+  teaching_object?: string;
+  textbook_edition?: string;
+  subject?: string;
+  long_term_goal?: string;
+  current_topic?: string;
+  current_objective?: string;
+}
 
 export const useChatLogic = () => {
-  const { user, profile, openAuthDialog } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  const [messages, setMessages] = useState<(Message & { resource?: Tables<'teaching_resources'> | null })[]>([
-    {
-      role: 'assistant',
-      content: '你好！我是你的特教之光AI助手Lily，有什么可以帮助你的吗？例如：帮我创建一个关于春天的教案。'
-    }
-  ]);
-  const [input, setInput] = useState('');
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [collectedInfo, setCollectedInfo] = useState<CollectedInfo>({});
+  const [isInfoComplete, setIsInfoComplete] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [collectedInfo, setCollectedInfo] = useState<TeachingInfo>({});
-  const [currentIntent, setCurrentIntent] = useState<Intent | null>(null);
-  const [isCanvasOpen, setIsCanvasOpen] = useState(false);
-  const [planToShow, setPlanToShow] = useState<string | null>(null);
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
 
-  const addMessage = (message: Message & { resource?: Tables<'teaching_resources'> | null }) => {
-    setMessages(prev => [...prev, message]);
-  };
-  
-  const resetConversation = () => {
-    setCollectedInfo({});
-    setCurrentIntent(null);
-    setIsCanvasOpen(false);
-  };
-
-  const resetToInitialState = () => {
-    setMessages([
-      {
-        role: 'assistant',
-        content: '你好！我是你的特教之光AI助手Lily，有什么可以帮助你的吗？例如：帮我创建一个关于春天的教案。'
-      }
-    ]);
-    setInput('');
-    setIsLoading(false);
-    setCollectedInfo({});
-    setCurrentIntent(null);
-    setIsCanvasOpen(false);
-    setPlanToShow(null);
-  };
-
-  const sendMessage = async (messageContent: string) => {
-    if (isLoading || !messageContent.trim()) return;
-
+  const sendMessage = useCallback(async (content: string) => {
     if (!user) {
-        openAuthDialog();
-        return;
+      toast.error('请先登录');
+      return;
     }
 
-    console.log('开始发送消息:', messageContent);
-    console.log('当前用户:', user?.id);
-    console.log('当前收集信息:', collectedInfo);
+    console.log('发送消息:', content);
+    console.log('当前用户:', user.id);
+    console.log('已收集信息:', collectedInfo);
 
-    const userMessage: Message = { role: 'user', content: messageContent };
-    
-    // 立即添加用户消息
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content,
+      role: 'user',
+      timestamp: new Date(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
 
-    // 准备发送给AI的历史记录（排除初始欢迎消息）
-    const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
-    
-    console.log('准备发送的历史记录:', chatHistory);
-    console.log('AI函数调用参数:', {
-      message: messageContent,
-      history: chatHistory,
-      collectedInfo: collectedInfo,
-    });
-
     try {
+      console.log('调用 ai-chat Edge Function...');
+      
+      // 调用Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('ai-chat', {
-        body: { 
-          message: messageContent,
-          history: chatHistory,
-          collectedInfo: collectedInfo,
-        },
+        body: {
+          message: content,
+          history: messages,
+          collectedInfo: collectedInfo
+        }
       });
 
-      console.log('AI函数返回数据:', data);
-      console.log('AI函数错误:', error);
+      console.log('Edge Function 响应:', { data, error });
 
       if (error) {
-        console.error('Supabase函数调用错误:', error);
-        throw error;
+        console.error('Edge Function 错误:', error);
+        throw new Error(`调用AI服务失败: ${error.message}`);
       }
 
       if (!data) {
-        console.error('AI函数返回空数据');
-        throw new Error('AI函数返回空数据');
-      }
-      
-      const { reply, is_complete, collected_info, newly_collected_info, task_ready, intent } = data;
-
-      console.log('AI回复:', reply);
-      console.log('任务状态:', { is_complete, task_ready, intent });
-
-      if (reply) {
-        addMessage({ role: 'assistant', content: reply });
-      } else {
-        console.warn('AI没有返回回复内容');
-        addMessage({ role: 'assistant', content: '抱歉，我暂时无法理解您的问题，请重新描述一下。' });
+        throw new Error('AI服务返回空响应');
       }
 
-      let newCollectedInfo = { ...collectedInfo };
-      if (newly_collected_info) {
-        newCollectedInfo = { ...newCollectedInfo, ...newly_collected_info };
-        console.log('更新收集信息 (新增):', newly_collected_info);
-      }
-      if (collected_info) {
-        newCollectedInfo = { ...collected_info };
-        console.log('更新收集信息 (完整):', collected_info);
-      }
-      setCollectedInfo(newCollectedInfo);
+      // 处理AI响应
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: data.reply || '抱歉，我无法生成响应。',
+        role: 'assistant',
+        timestamp: new Date(),
+      };
 
-      if (task_ready) {
-        console.log('任务准备就绪，打开画布');
-        setCurrentIntent(intent);
-        setIsCanvasOpen(true);
-      } else if (is_complete) {
-        console.log('信息收集完成，等待用户指定任务');
+      setMessages(prev => [...prev, aiMessage]);
+
+      // 更新收集的信息
+      if (data.newly_collected_info) {
+        console.log('更新收集信息:', data.newly_collected_info);
+        setCollectedInfo(prev => ({ ...prev, ...data.newly_collected_info }));
       }
 
-    } catch(err) {
-      console.error("调用AI聊天函数时出错:", err);
-      
-      let errorMessage = "抱歉，我遇到了一些技术问题，请稍后重试。";
-      if (err instanceof Error) {
-        if (err.message.includes('Failed to fetch')) {
-            errorMessage = "网络连接失败，请检查你的网络并重试。";
-        } else if (err.message.toLowerCase().includes('unauthorized')) {
-            errorMessage = "身份验证失败，请重新登录后再试。";
-        } else {
-            try {
-                const errorObj = JSON.parse(err.message);
-                if(errorObj.error) {
-                  errorMessage = `出错了: ${errorObj.error}`;
-                }
-            } catch(e) {
-                errorMessage = `出现了一个意外的错误: ${err.message}`;
-            }
-        }
+      // 检查信息是否完整
+      if (data.is_complete) {
+        console.log('信息收集完成');
+        setIsInfoComplete(true);
+        setCollectedInfo(data.collected_info || collectedInfo);
       }
-      
-      addMessage({ role: 'assistant', content: errorMessage });
-    } finally {
-      setIsLoading(false);
-      console.log('消息发送流程完成');
-    }
-  };
 
-  useEffect(() => {
-    const state = location.state as { initialPrompt?: string, resumeTask?: string } | null;
-    if (state?.initialPrompt) {
-      sendMessage(state.initialPrompt);
-      navigate(location.pathname, { replace: true, state: {} });
-    } else if (state?.resumeTask) {
-      console.log('Resuming task:', state.resumeTask);
-      addMessage({ role: 'assistant', content: `好的，让我们继续之前的任务。` });
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state]);
-
-  const handleCloseCanvas = () => {
-    setIsCanvasOpen(false);
-    resetConversation();
-    addMessage({ role: 'assistant', content: '好的，任务已取消。有什么新的可以帮你？' });
-  };
-
-  const handleGeneratePptOutline = async () => {
-    setIsLoading(true);
-    
-    const subject = profile?.subject || '通用';
-    const textbook_edition = profile?.textbook_edition || '通用版本';
-    const teaching_object = profile?.teaching_object || '学生';
-
-    try {
-        const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-ppt-outline', {
-            body: { 
-                topic: collectedInfo.topic,
-                objective: collectedInfo.objective,
-                grade: collectedInfo.grade,
-                subject,
-                textbook_edition,
-                teaching_object
-            },
-        });
-
-        if (functionError) throw functionError;
-
-        const { pptOutline } = functionData;
-
-        const { data: resourceData, error: resourceError } = await supabase
-            .from('teaching_resources')
-            .insert({
-                user_id: user!.id,
-                title: `《${collectedInfo.topic}》专业PPT大纲`,
-                content: pptOutline,
-                resource_type: 'ppt_outline',
-                metadata: {
-                  ...collectedInfo,
-                  subject,
-                  textbook_edition,
-                  teaching_object,
-                  structure_type: 'professional_teaching_rhythm'
-                } as any,
-            })
-            .select()
-            .single();
-
-        if (resourceError) throw resourceError;
-        
-        setIsCanvasOpen(false);
-        resetConversation();
-        addMessage({
-            role: 'assistant',
-            content: `针对主题"${collectedInfo.topic}"的专业PPT大纲已生成！这份大纲按照标准的教学节奏设计，包含完整的5段式教学流程，每个环节都有详细的内容规划和可视化建议。`,
-            resource: resourceData,
-        });
+      // 处理任务准备就绪的情况
+      if (data.task_ready && data.intent) {
+        console.log('任务准备就绪:', data.intent);
+        // 这里可以添加任务处理逻辑
+      }
 
     } catch (error) {
-        console.error('Error generating PPT outline:', error);
-        addMessage({
-            role: 'assistant',
-            content: '抱歉，生成PPT大纲时出错了，请稍后再试。'
-        });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
-  const handleGenerateLessonPlan = async () => {
-    setIsLoading(true);
-    
-    const subject = profile?.subject || '通用';
-    const textbook_edition = profile?.textbook_edition || '通用版本';
-    const teaching_object = profile?.teaching_object || '学生';
-    const long_term_goal = profile?.long_term_goal || '提升学科素养';
-
-    try {
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-lesson-plan', {
-          body: { 
-            topic: collectedInfo.topic,
-            grade: collectedInfo.grade,
-            objective: collectedInfo.objective,
-            subject,
-            textbook_edition,
-            teaching_object,
-            long_term_goal
-          },
-      });
-
-      if (functionError) throw functionError;
-
-      const { lessonPlan } = functionData;
-
-      const { data: resourceData, error: resourceError } = await supabase
-          .from('teaching_resources')
-          .insert({
-              user_id: user!.id,
-              title: `《${collectedInfo.topic}》教案设计`,
-              content: lessonPlan,
-              resource_type: 'lesson_plan',
-              metadata: {
-                ...collectedInfo,
-                subject,
-                textbook_edition,
-                teaching_object,
-                long_term_goal
-              } as any,
-          })
-          .select()
-          .single();
-      
-      if (resourceError) throw resourceError;
-      
-      setIsCanvasOpen(false);
-      resetConversation();
-      addMessage({
-          role: 'assistant',
-          content: `针对主题"${collectedInfo.topic}"为${collectedInfo.grade}学生设计的专业教案已生成！这份教案严格按照11个标准结构设计，体现了以学生为中心的教学理念。`,
-          resource: resourceData
-      });
-
-    } catch(error) {
-        console.error('Error generating or saving lesson plan:', error);
-        addMessage({
-            role: 'assistant',
-            content: '抱歉，处理教案时出错了，请稍后再试。'
-        });
+      console.error('发送消息错误:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `抱歉，发生了错误：${error instanceof Error ? error.message : '未知错误'}`,
+        role: 'assistant',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      toast.error('发送消息失败');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleGenerateImages = async () => {
-    setIsLoading(true);
-    
-    try {
-      addMessage({
-        role: 'assistant',
-        content: '正在为您生成智能图片提示词，请稍候...'
-      });
-      
-      // 1. Generate prompts
-      const { data: promptsData, error: promptsError } = await supabase.functions.invoke('generate-image-prompts', {
-        body: {
-          teachingObject: profile?.teaching_object || '',
-          subject: profile?.subject || '',
-          longTermGoal: profile?.long_term_goal || '',
-          topic: collectedInfo.topic || '',
-          objective: collectedInfo.objective || ''
-        },
-      });
-
-      if (promptsError) throw promptsError;
-
-      const { reasoning, prompts } = promptsData;
-
-      if (!prompts || prompts.length === 0) {
-        throw new Error("AI未能生成有效的图片提示词，请调整输入后重试。");
-      }
-
-      addMessage({
-        role: 'assistant',
-        content: `提示词已生成！\n\n**设计思路**:\n${reasoning}\n\n正在为您生成 ${prompts.length} 张图片...`
-      });
-
-      // 2. Generate images from prompts
-      const { data: imagesData, error: imagesError } = await supabase.functions.invoke('generate-image', {
-        body: { prompts },
-      });
-
-      if (imagesError) throw imagesError;
-
-      const { urls } = imagesData;
-
-      // 3. Save to teaching_resources
-      const { data: resourceData, error: resourceError } = await supabase
-        .from('teaching_resources')
-        .insert({
-          user_id: user!.id,
-          title: `为"${collectedInfo.topic}"生成的系列图片`,
-          content: '', // Not used for image group
-          resource_type: 'image_group',
-          metadata: { 
-            prompts,
-            urls,
-            baseInfo: collectedInfo,
-            reasoning,
-          } as any,
-        })
-        .select()
-        .single();
-      
-      if (resourceError) throw resourceError;
-      
-      setIsCanvasOpen(false);
-      resetConversation();
-      addMessage({
-        role: 'assistant',
-        content: `"${collectedInfo.topic}"的系列图片已生成！`,
-        resource: resourceData
-      });
-
-    } catch (error: any) {
-        console.error('Error generating images:', error);
-        addMessage({
-            role: 'assistant',
-            content: `抱歉，生成图片时出错了：${error.message}`
-        });
-    } finally {
-        setIsLoading(false);
-        if (isCanvasOpen) {
-          setIsCanvasOpen(false);
-          resetConversation();
-        }
-    }
-  };
+  }, [user, messages, collectedInfo]);
 
   return {
     messages,
-    input,
-    setInput,
     isLoading,
-    isCanvasOpen,
-    handleCloseCanvas,
-    currentIntent,
-    collectedInfo,
-    handleGenerateLessonPlan,
-    handleGeneratePptOutline,
-    handleGenerateImages,
-    planToShow,
-    setPlanToShow,
     sendMessage,
-    resetToInitialState,
+    messagesEndRef,
+    scrollToBottom,
+    collectedInfo,
+    isInfoComplete
   };
 };
