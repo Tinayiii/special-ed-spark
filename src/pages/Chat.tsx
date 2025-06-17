@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 import Canvas from '@/components/Canvas';
 import LessonPlanDialog from '@/components/LessonPlanDialog';
@@ -11,8 +11,15 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Chat = () => {
+  const location = useLocation();
+  const { user } = useAuth();
+  const [isLoadingConversation, setIsLoadingConversation] = useState(false);
+  
   const {
     messages,
     input,
@@ -30,6 +37,50 @@ const Chat = () => {
     resetToInitialState,
   } = useChatLogic();
 
+  useEffect(() => {
+    const state = location.state as { resumeConversation?: string } | null;
+    if (state?.resumeConversation && user) {
+      loadConversation(state.resumeConversation);
+    }
+  }, [location.state, user]);
+
+  const loadConversation = async (conversationId: string) => {
+    if (!user) return;
+    
+    setIsLoadingConversation(true);
+    try {
+      // 加载对话消息
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (messagesError) throw messagesError;
+
+      // 加载对话信息
+      const { data: conversationData, error: conversationError } = await supabase
+        .from('conversations')
+        .select('collected_info')
+        .eq('id', conversationId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (conversationError) throw conversationError;
+
+      console.log('【对话管理】加载历史对话:', conversationId, messagesData?.length);
+      
+      // TODO: 这里需要将加载的消息设置到当前聊天中
+      // 由于useChatLogic hook的限制，暂时只显示欢迎消息
+      // 后续可以扩展hook来支持加载历史消息
+      
+    } catch (error) {
+      console.error('Error loading conversation:', error);
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim()) {
@@ -41,6 +92,17 @@ const Chat = () => {
   const handleNewConversation = () => {
     resetToInitialState();
   };
+
+  if (isLoadingConversation) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">加载对话中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden">
