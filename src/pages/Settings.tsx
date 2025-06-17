@@ -9,10 +9,23 @@ import { useState, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User } from "lucide-react";
+import { User, LogOut, UserX } from "lucide-react";
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const Settings = () => {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, openAuthDialog } = useAuth();
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -97,8 +110,31 @@ const Settings = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+    toast.success('已退出登录');
+  };
+
+  const handleSwitchAccount = async () => {
+    await supabase.auth.signOut();
+    openAuthDialog();
+    toast.success('请登录其他账号');
+  };
+
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold mb-4">请先登录</h1>
+          <Button onClick={openAuthDialog}>登录 / 注册</Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
+    <div className="space-y-8 max-w-4xl mx-auto p-6">
       <div>
         <h1 className="text-34 font-medium leading-1.3 text-gray-800">设置</h1>
         <p className="text-xl text-muted-foreground mt-2">在这里管理你的教学偏好，这些信息将被用于生成更个性化的内容。</p>
@@ -150,6 +186,62 @@ const Settings = () => {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>账户管理</CardTitle>
+          <CardDescription>管理你的登录状态和账户切换。</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
+                  退出登录
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>确认退出</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    你确定要退出登录吗？退出后需要重新登录才能使用所有功能。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleLogout}>
+                    确认退出
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                  <UserX className="h-4 w-4" />
+                  切换账号
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>切换账号</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    你将退出当前账号并可以登录其他账号。当前的设置和数据将保留在此账号中。
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>取消</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSwitchAccount}>
+                    确认切换
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </CardContent>
       </Card>
     </div>

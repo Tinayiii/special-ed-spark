@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Message, Intent, TeachingInfo } from '@/types/chat';
@@ -13,7 +12,7 @@ export const useChatLogic = () => {
 
   const [messages, setMessages] = useState<(Message & { resource?: Tables<'teaching_resources'> | null })[]>([
     {
-      role: 'assistant',
+      role: 'assistant' as const,
       content: '你好！我是你的特教之光AI助手Lily，有什么可以帮助你的吗？例如：帮我创建一个关于春天的教案。'
     }
   ]);
@@ -101,9 +100,10 @@ export const useChatLogic = () => {
   };
 
   const resetToInitialState = async () => {
+    console.log('【对话管理】重置到初始状态');
     setMessages([
       {
-        role: 'assistant',
+        role: 'assistant' as const,
         content: '你好！我是你的特教之光AI助手Lily，有什么可以帮助你的吗？例如：帮我创建一个关于春天的教案。'
       }
     ]);
@@ -115,7 +115,10 @@ export const useChatLogic = () => {
     setPlanToShow(null);
     
     // 创建新对话
-    await createNewConversation();
+    if (user) {
+      const newConversationId = await createNewConversation();
+      console.log('【对话管理】新对话ID:', newConversationId);
+    }
   };
 
   const sendMessage = async (messageContent: string) => {
@@ -135,13 +138,13 @@ export const useChatLogic = () => {
     if (!conversationId) {
       conversationId = await createNewConversation();
       if (!conversationId) {
-        const errorMessage: Message = { role: 'assistant', content: '抱歉，创建对话失败，请重试。' };
+        const errorMessage: Message = { role: 'assistant' as const, content: '抱歉，创建对话失败，请重试。' };
         addMessage(errorMessage);
         return;
       }
     }
 
-    const userMessage: Message = { role: 'user', content: messageContent };
+    const userMessage: Message = { role: 'user' as const, content: messageContent };
     
     // 立即添加用户消息
     const newMessages = [...messages, userMessage];
@@ -183,7 +186,7 @@ export const useChatLogic = () => {
         if (error.message) {
           errorMsg += ` 错误信息：${error.message}`;
         }
-        const assistantMessage: Message = { role: 'assistant', content: errorMsg };
+        const assistantMessage: Message = { role: 'assistant' as const, content: errorMsg };
         addMessage(assistantMessage);
         await saveMessageToConversation(conversationId, assistantMessage);
         throw error;
@@ -191,7 +194,7 @@ export const useChatLogic = () => {
 
       if (!data) {
         console.error('【AI错误】Edge Function 响应为空');
-        const assistantMessage: Message = { role: 'assistant', content: '抱歉，AI服务暂时不可用，请稍后再试。' };
+        const assistantMessage: Message = { role: 'assistant' as const, content: '抱歉，AI服务暂时不可用，请稍后再试。' };
         addMessage(assistantMessage);
         await saveMessageToConversation(conversationId, assistantMessage);
         return;
@@ -203,11 +206,11 @@ export const useChatLogic = () => {
       console.log('【AI调试】任务状态:', { is_complete, task_ready, intent });
 
       if (reply) {
-        const assistantMessage: Message = { role: 'assistant', content: reply };
+        const assistantMessage: Message = { role: 'assistant' as const, content: reply };
         addMessage(assistantMessage);
         await saveMessageToConversation(conversationId, assistantMessage);
       } else {
-        const assistantMessage: Message = { role: 'assistant', content: '抱歉，我暂时无法理解您的问题，请重新描述一下。' };
+        const assistantMessage: Message = { role: 'assistant' as const, content: '抱歉，我暂时无法理解您的问题，请重新描述一下。' };
         addMessage(assistantMessage);
         await saveMessageToConversation(conversationId, assistantMessage);
       }
@@ -241,7 +244,7 @@ export const useChatLogic = () => {
       if (err instanceof Error) {
         errorMessage += `（${err.message}）`;
       }
-      const assistantMessage: Message = { role: 'assistant', content: errorMessage };
+      const assistantMessage: Message = { role: 'assistant' as const, content: errorMessage };
       addMessage(assistantMessage);
       if (conversationId) {
         await saveMessageToConversation(conversationId, assistantMessage);
@@ -259,7 +262,7 @@ export const useChatLogic = () => {
       navigate(location.pathname, { replace: true, state: {} });
     } else if (state?.resumeTask) {
       console.log('Resuming task:', state.resumeTask);
-      const resumeMessage: Message = { role: 'assistant', content: `好的，让我们继续之前的任务。` };
+      const resumeMessage: Message = { role: 'assistant' as const, content: `好的，让我们继续之前的任务。` };
       addMessage(resumeMessage);
       navigate(location.pathname, { replace: true, state: {} });
     } else {
@@ -274,7 +277,7 @@ export const useChatLogic = () => {
   const handleCloseCanvas = () => {
     setIsCanvasOpen(false);
     resetConversation();
-    const cancelMessage: Message = { role: 'assistant', content: '好的，任务已取消。有什么新的可以帮你？' };
+    const cancelMessage: Message = { role: 'assistant' as const, content: '好的，任务已取消。有什么新的可以帮你？' };
     addMessage(cancelMessage);
   };
 
@@ -325,7 +328,7 @@ export const useChatLogic = () => {
         setIsCanvasOpen(false);
         resetConversation();
         const successMessage: Message = {
-            role: 'assistant',
+            role: 'assistant' as const,
             content: `针对主题"${collectedInfo.topic}"的专业PPT大纲已生成！这份大纲按照标准的教学节奏设计，包含完整的5段式教学流程，每个环节都有详细的内容规划和可视化建议。`,
         };
         addMessage({
@@ -336,7 +339,7 @@ export const useChatLogic = () => {
     } catch (error) {
         console.error('Error generating PPT outline:', error);
         const errorMessage: Message = {
-            role: 'assistant',
+            role: 'assistant' as const,
             content: '抱歉，生成PPT大纲时出错了，请稍后再试。'
         };
         addMessage(errorMessage);
@@ -394,7 +397,7 @@ export const useChatLogic = () => {
       setIsCanvasOpen(false);
       resetConversation();
       const successMessage: Message = {
-          role: 'assistant',
+          role: 'assistant' as const,
           content: `针对主题"${collectedInfo.topic}"为${collectedInfo.grade}学生设计的专业教案已生成！这份教案严格按照11个标准结构设计，体现了以学生为中心的教学理念。`,
       };
       addMessage({
@@ -405,7 +408,7 @@ export const useChatLogic = () => {
     } catch(error) {
         console.error('Error generating or saving lesson plan:', error);
         const errorMessage: Message = {
-            role: 'assistant',
+            role: 'assistant' as const,
             content: '抱歉，处理教案时出错了，请稍后再试。'
         };
         addMessage(errorMessage);
@@ -419,7 +422,7 @@ export const useChatLogic = () => {
     
     try {
       const progressMessage: Message = {
-        role: 'assistant',
+        role: 'assistant' as const,
         content: '正在为您生成智能图片提示词，请稍候...'
       };
       addMessage(progressMessage);
@@ -444,7 +447,7 @@ export const useChatLogic = () => {
       }
 
       const reasoningMessage: Message = {
-        role: 'assistant',
+        role: 'assistant' as const,
         content: `提示词已生成！\n\n**设计思路**:\n${reasoning}\n\n正在为您生成 ${prompts.length} 张图片...`
       };
       addMessage(reasoningMessage);
@@ -482,7 +485,7 @@ export const useChatLogic = () => {
       setIsCanvasOpen(false);
       resetConversation();
       const successMessage: Message = {
-        role: 'assistant',
+        role: 'assistant' as const,
         content: `"${collectedInfo.topic}"的系列图片已生成！`,
       };
       addMessage({
@@ -493,7 +496,7 @@ export const useChatLogic = () => {
     } catch (error: any) {
         console.error('Error generating images:', error);
         const errorMessage: Message = {
-            role: 'assistant',
+            role: 'assistant' as const,
             content: `抱歉，生成图片时出错了：${error.message}`
         };
         addMessage(errorMessage);

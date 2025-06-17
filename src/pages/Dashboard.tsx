@@ -17,6 +17,10 @@ const Dashboard = () => {
     }
   };
 
+  const handleExploreCases = () => {
+    navigate('/community');
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-4">
       <div className="w-full max-w-3xl flex-grow flex flex-col justify-center">
@@ -28,7 +32,7 @@ const Dashboard = () => {
           <Textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="给“特教之光”一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
+            placeholder="给"特教之光"一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
             className="w-full p-4 pr-16 text-base rounded-2xl shadow-lg focus-visible:ring-2 focus-visible:ring-primary/50 transition-shadow min-h-[60px] resize-none"
             rows={1}
             onKeyDown={(e) => {
@@ -65,9 +69,12 @@ const Dashboard = () => {
         </div>
       </div>
       <div className="pb-4">
-        <a href="#more-use-cases" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+        <button 
+          onClick={handleExploreCases}
+          className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+        >
           探索更多使用案例
-        </a>
+        </button>
       </div>
     </div>
   );
