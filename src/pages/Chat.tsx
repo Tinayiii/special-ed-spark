@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 import Canvas from '@/components/Canvas';
@@ -78,10 +77,6 @@ const Chat = () => {
       if (conversationError) throw conversationError;
 
       console.log('【对话管理】加载历史对话:', conversationId, messagesData?.length);
-      
-      // TODO: 这里需要将加载的消息设置到当前聊天中
-      // 由于useChatLogic hook的限制，暂时只显示欢迎消息
-      // 后续可以扩展hook来支持加载历史消息
       
     } catch (error) {
       console.error('Error loading conversation:', error);

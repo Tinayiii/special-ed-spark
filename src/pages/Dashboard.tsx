@@ -24,7 +24,7 @@ const Dashboard = () => {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-4">
       <div className="w-full max-w-3xl flex-grow flex flex-col justify-center">
-        <h1 className="text-44 font-medium leading-1.2 text-gray-800 mb-6 animate-fade-in-down">
+        <h1 className="text-4xl font-medium leading-tight text-gray-800 mb-6 animate-fade-in-down">
           我能为您做什么？
         </h1>
         
@@ -56,13 +56,13 @@ const Dashboard = () => {
           <span className="text-muted-foreground text-sm">或者试试这些：</span>
           <Button variant="outline" size="sm" asChild>
             <Link to="/lesson-planner">
-              <Book className="mr-2" />
+              <Book className="mr-2 h-4 w-4" />
               生成教案
             </Link>
           </Button>
           <Button variant="outline" size="sm" asChild>
             <Link to="/image-editor">
-              <ImageIcon className="mr-2" />
+              <ImageIcon className="mr-2 h-4 w-4" />
               修改插图
             </Link>
           </Button>

@@ -65,7 +65,6 @@ export const useChatLogic = () => {
     if (!user) return;
 
     try {
-      // 生成对话标题（取前20个字符）
       const title = firstMessage.length > 20 ? firstMessage.substring(0, 20) + '...' : firstMessage;
       
       const { error } = await supabase
@@ -114,7 +113,6 @@ export const useChatLogic = () => {
     setIsCanvasOpen(false);
     setPlanToShow(null);
     
-    // 创建新对话
     if (user) {
       const newConversationId = await createNewConversation();
       console.log('【对话管理】新对话ID:', newConversationId);
@@ -133,7 +131,6 @@ export const useChatLogic = () => {
     console.log('【AI调试】当前用户:', user?.id);
     console.log('【AI调试】当前收集信息:', collectedInfo);
 
-    // 如果没有当前对话ID，创建新对话
     let conversationId = currentConversationId;
     if (!conversationId) {
       conversationId = await createNewConversation();
@@ -146,20 +143,16 @@ export const useChatLogic = () => {
 
     const userMessage: Message = { role: 'user' as const, content: messageContent };
     
-    // 立即添加用户消息
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
 
-    // 保存用户消息到数据库
     await saveMessageToConversation(conversationId, userMessage);
 
-    // 如果这是第一条用户消息，更新对话标题
     if (newMessages.filter(m => m.role === 'user').length === 1) {
       await updateConversationTitle(conversationId, messageContent);
     }
 
-    // 准备发送给AI的历史记录（排除初始欢迎消息）
     const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
     
     console.log('【AI调试】即将调用 ai-chat Edge Function，参数:');
@@ -224,7 +217,6 @@ export const useChatLogic = () => {
       }
       setCollectedInfo(newCollectedInfo);
 
-      // 更新对话的收集信息
       if (conversationId && Object.keys(newCollectedInfo).length > 0) {
         await supabase
           .from('conversations')
@@ -256,23 +248,10 @@ export const useChatLogic = () => {
   };
 
   useEffect(() => {
-    const state = location.state as { initialPrompt?: string, resumeTask?: string } | null;
-    if (state?.initialPrompt) {
-      sendMessage(state.initialPrompt);
-      navigate(location.pathname, { replace: true, state: {} });
-    } else if (state?.resumeTask) {
-      console.log('Resuming task:', state.resumeTask);
-      const resumeMessage: Message = { role: 'assistant' as const, content: `好的，让我们继续之前的任务。` };
-      addMessage(resumeMessage);
-      navigate(location.pathname, { replace: true, state: {} });
-    } else {
-      // 如果没有特殊状态，创建新对话
-      if (user && !currentConversationId) {
-        createNewConversation();
-      }
+    if (user && !currentConversationId) {
+      createNewConversation();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state, user]);
+  }, [user, currentConversationId]);
 
   const handleCloseCanvas = () => {
     setIsCanvasOpen(false);
@@ -427,7 +406,6 @@ export const useChatLogic = () => {
       };
       addMessage(progressMessage);
       
-      // 1. Generate prompts
       const { data: promptsData, error: promptsError } = await supabase.functions.invoke('generate-image-prompts', {
         body: {
           teachingObject: profile?.teaching_object || '',
@@ -452,7 +430,6 @@ export const useChatLogic = () => {
       };
       addMessage(reasoningMessage);
 
-      // 2. Generate images from prompts
       const { data: imagesData, error: imagesError } = await supabase.functions.invoke('generate-image', {
         body: { prompts },
       });
@@ -461,13 +438,12 @@ export const useChatLogic = () => {
 
       const { urls } = imagesData;
 
-      // 3. Save to teaching_resources
       const { data: resourceData, error: resourceError } = await supabase
         .from('teaching_resources')
         .insert({
           user_id: user!.id,
           title: `为"${collectedInfo.topic}"生成的系列图片`,
-          content: '', // Not used for image group
+          content: '',
           resource_type: 'image_group',
           conversation_id: currentConversationId,
           metadata: { 
