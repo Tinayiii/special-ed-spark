@@ -11,12 +11,13 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Chat = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   
@@ -38,11 +39,19 @@ const Chat = () => {
   } = useChatLogic();
 
   useEffect(() => {
-    const state = location.state as { resumeConversation?: string } | null;
-    if (state?.resumeConversation && user) {
+    const state = location.state as { resumeConversation?: string; initialPrompt?: string } | null;
+    
+    // 处理从主页跳转过来的初始提示
+    if (state?.initialPrompt && user) {
+      console.log('【跳转逻辑】从主页接收到初始提示:', state.initialPrompt);
+      // 发送初始消息
+      sendMessage(state.initialPrompt);
+      // 清理state，避免重复发送
+      navigate(location.pathname, { replace: true, state: {} });
+    } else if (state?.resumeConversation && user) {
       loadConversation(state.resumeConversation);
     }
-  }, [location.state, user]);
+  }, [location.state, user, sendMessage, navigate, location.pathname]);
 
   const loadConversation = async (conversationId: string) => {
     if (!user) return;

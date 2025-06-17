@@ -12,8 +12,8 @@ const Dashboard = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (prompt.trim()) {
-      // We can pass the prompt in the future, for now just navigate
-      navigate(`/chat`, { state: { initialPrompt: prompt } });
+      // 直接跳转到聊天页面并传递初始提示
+      navigate('/chat', { state: { initialPrompt: prompt } });
     }
   };
 
