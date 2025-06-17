@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,6 +30,7 @@ const App = () => (
             <Route path="/image-editor" element={<ImageEditor />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/chat/:userId" element={<Chat />} />
             <Route path="/community" element={<Community />} />
           </Route>
           <Route path="*" element={<NotFound />} />

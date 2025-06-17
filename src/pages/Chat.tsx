@@ -10,7 +10,7 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -18,6 +18,7 @@ const Chat = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { userId, conversationId } = useParams();
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   
   const {
@@ -37,53 +38,53 @@ const Chat = () => {
     resetToInitialState,
   } = useChatLogic();
 
+  // 加载历史会话
   useEffect(() => {
-    const state = location.state as { resumeConversation?: string; initialPrompt?: string } | null;
-    
-    // 处理从主页跳转过来的初始提示
-    if (state?.initialPrompt && user) {
-      console.log('【跳转逻辑】从主页接收到初始提示:', state.initialPrompt);
-      // 发送初始消息
+    if (!conversationId || !user) return;
+    const loadConversation = async () => {
+      setIsLoadingConversation(true);
+      try {
+        const { data: messagesData, error: messagesError } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
+        if (messagesError) throw messagesError;
+        const { data: conversationData, error: conversationError } = await supabase
+          .from('conversations')
+          .select('collected_info')
+          .eq('id', conversationId)
+          .eq('user_id', user.id)
+          .single();
+        if (conversationError) throw conversationError;
+        // 这里可以根据messagesData/conversationData设置本地状态（如需）
+        console.log('【对话管理】加载历史对话:', conversationId, messagesData?.length);
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+      } finally {
+        setIsLoadingConversation(false);
+      }
+    };
+    loadConversation();
+  }, [conversationId, user]);
+
+  // 处理初始消息
+  useEffect(() => {
+    if (!conversationId || !user) return;
+    const state = location.state as { initialPrompt?: string; resumeConversation?: string } | null;
+    if (state?.initialPrompt) {
       sendMessage(state.initialPrompt);
-      // 清理state，避免重复发送
       navigate(location.pathname, { replace: true, state: {} });
-    } else if (state?.resumeConversation && user) {
-      loadConversation(state.resumeConversation);
     }
-  }, [location.state, user, sendMessage, navigate, location.pathname]);
+  }, [conversationId, user, location.state, sendMessage, navigate, location.pathname]);
 
-  const loadConversation = async (conversationId: string) => {
-    if (!user) return;
-    
-    setIsLoadingConversation(true);
-    try {
-      // 加载对话消息
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (messagesError) throw messagesError;
-
-      // 加载对话信息
-      const { data: conversationData, error: conversationError } = await supabase
-        .from('conversations')
-        .select('collected_info')
-        .eq('id', conversationId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (conversationError) throw conversationError;
-
-      console.log('【对话管理】加载历史对话:', conversationId, messagesData?.length);
-      
-    } catch (error) {
-      console.error('Error loading conversation:', error);
-    } finally {
-      setIsLoadingConversation(false);
+  // 兼容老的resumeConversation跳转
+  useEffect(() => {
+    const state = location.state as { resumeConversation?: string } | null;
+    if (state?.resumeConversation && user) {
+      navigate(`/chat/${user.id}/${state.resumeConversation}`, { replace: true });
     }
-  };
+  }, [location.state, user, navigate]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

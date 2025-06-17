@@ -32,7 +32,7 @@ const Dashboard = () => {
           <Textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="给"特教之光"一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
+            placeholder="给我一个任务，比如：为一名二年级学生生成一篇关于春天的识字课文..."
             className="w-full p-4 pr-16 text-base rounded-2xl shadow-lg focus-visible:ring-2 focus-visible:ring-primary/50 transition-shadow min-h-[60px] resize-none"
             rows={1}
             onKeyDown={(e) => {

@@ -1,9 +1,22 @@
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`;
+
+interface LessonPlanResponse {
+  lessonPlan: string;
+  teachingResources: {
+    type: string;
+    description: string;
+    imagePrompt?: string;
+  }[];
+  visualElements: {
+    type: 'image' | 'diagram';
+    description: string;
+    context: string;
+  }[];
+}
 
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -53,7 +66,11 @@ serve(async (req: Request) => {
 - 授课科目：${subject}
 - 长期教学目标：${long_term_goal}
 
-请使用Markdown格式输出，确保每个部分都有清晰的标题和详细的内容。`;
+除了教案内容外，请额外提供以下JSON格式的数据：
+1. teachingResources: 教学资源列表，每个资源包含类型(type)、描述(description)和图片生成提示词(imagePrompt)
+2. visualElements: 需要的视觉元素列表，包含类型(type)、描述(description)和使用场景(context)
+
+请使用Markdown格式输出教案内容，确保每个部分都有清晰的标题和详细的内容。在教案末尾添加JSON数据。`;
 
     const userPrompt = `请设计一节面向${grade} ${subject}课程的教案，主题为《${topic}》，本次授课希望达到的教学目标是：${objective}。
 
@@ -83,9 +100,28 @@ serve(async (req: Request) => {
     }
 
     const responseData = await response.json();
-    const lessonPlan = responseData.candidates[0].content.parts[0].text;
+    const fullResponse = responseData.candidates[0].content.parts[0].text;
 
-    return new Response(JSON.stringify({ lessonPlan }), {
+    // 分离教案内容和JSON数据
+    const [lessonPlan, jsonStr] = fullResponse.split('```json');
+    let teachingResources = [];
+    let visualElements = [];
+
+    if (jsonStr) {
+        try {
+            const jsonData = JSON.parse(jsonStr.replace('```', '').trim());
+            teachingResources = jsonData.teachingResources || [];
+            visualElements = jsonData.visualElements || [];
+        } catch (e) {
+            console.error('Error parsing JSON data:', e);
+        }
+    }
+
+    return new Response(JSON.stringify({ 
+        lessonPlan: lessonPlan.trim(),
+        teachingResources,
+        visualElements
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Message, Intent, TeachingInfo } from '@/types/chat';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Tables } from '@/integrations/supabase/types';
+import { Tables, Database } from '@/integrations/supabase/types';
+import { toast } from '@/components/ui/use-toast';
+
+type ConversationDetails = Database['public']['Tables']['conversation_details']['Row'];
+type ConversationDetailsInsert = Database['public']['Tables']['conversation_details']['Insert'];
 
 export const useChatLogic = () => {
   const { user, profile, openAuthDialog } = useAuth();
@@ -81,9 +85,12 @@ export const useChatLogic = () => {
   };
 
   const saveMessageToConversation = async (conversationId: string, message: Message) => {
-    if (!user) return;
-
+    if (!user) {
+      console.error('【对话管理】保存消息失败：user 不存在');
+      return;
+    }
     try {
+      console.log('【对话管理】准备写入消息到数据库:', { conversationId, message });
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -91,10 +98,11 @@ export const useChatLogic = () => {
           role: message.role,
           content: message.content,
         });
-
       if (error) throw error;
+      console.log('【对话管理】消息写入数据库成功');
     } catch (error) {
       console.error('【对话管理】保存消息失败:', error);
+      throw error;
     }
   };
 
@@ -119,18 +127,47 @@ export const useChatLogic = () => {
     }
   };
 
-  const sendMessage = async (messageContent: string) => {
-    if (isLoading || !messageContent.trim()) return;
+  const updateConversationDetails = async (
+    conversationId: string, 
+    collectedInfo: any
+  ) => {
+    if (!user) return;
 
+    try {
+      const details: ConversationDetailsInsert = {
+        user_id: user.id,
+        conversation_id: conversationId,
+        subject: collectedInfo.subject || profile?.subject || '通用',
+        current_topic: collectedInfo.topic || '',
+        long_term_goal: collectedInfo.long_term_goal || profile?.long_term_goal || '提升学科素养',
+        teaching_object: collectedInfo.teaching_object || profile?.teaching_object || '学生',
+        textbook_edition: collectedInfo.textbook_edition || profile?.textbook_edition || '通用版本',
+        current_objective: collectedInfo.objective || ''
+      };
+
+      const { error } = await supabase
+        .from('conversation_details')
+        .upsert(details, {
+          onConflict: 'conversation_id',
+          ignoreDuplicates: false
+        });
+
+      if (error) throw error;
+      console.log('【对话管理】更新对话详情成功');
+    } catch (error) {
+      console.error('【对话管理】更新对话详情失败:', error);
+    }
+  };
+
+  const sendMessage = useCallback(async (messageContent: string) => {
+    if (isLoading || !messageContent.trim()) return;
     if (!user) {
         openAuthDialog();
         return;
     }
-
     console.log('【AI调试】开始发送消息:', messageContent);
     console.log('【AI调试】当前用户:', user?.id);
     console.log('【AI调试】当前收集信息:', collectedInfo);
-
     let conversationId = currentConversationId;
     if (!conversationId) {
       conversationId = await createNewConversation();
@@ -140,29 +177,22 @@ export const useChatLogic = () => {
         return;
       }
     }
-
     const userMessage: Message = { role: 'user' as const, content: messageContent };
-    
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setIsLoading(true);
-
-    await saveMessageToConversation(conversationId, userMessage);
-
-    if (newMessages.filter(m => m.role === 'user').length === 1) {
-      await updateConversationTitle(conversationId, messageContent);
-    }
-
-    const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
-    
-    console.log('【AI调试】即将调用 ai-chat Edge Function，参数:');
-    console.log({
-      message: messageContent,
-      history: chatHistory,
-      collectedInfo: collectedInfo,
-    });
-
     try {
+      await saveMessageToConversation(conversationId, userMessage);
+      if (newMessages.filter(m => m.role === 'user').length === 1) {
+        await updateConversationTitle(conversationId, messageContent);
+      }
+      const chatHistory = newMessages.slice(1).map(({role, content}) => ({role, content}));
+      console.log('【AI调试】即将调用 ai-chat Edge Function，参数:');
+      console.log({
+        message: messageContent,
+        history: chatHistory,
+        collectedInfo: collectedInfo,
+      });
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: { 
           message: messageContent,
@@ -170,9 +200,7 @@ export const useChatLogic = () => {
           collectedInfo: collectedInfo,
         },
       });
-
       console.log('【AI调试】ai-chat Edge Function 响应：', { data, error });
-
       if (error) {
         console.error('【AI错误】Supabase函数调用错误:', error);
         let errorMsg = 'AI服务调用失败，请稍后重试。';
@@ -184,7 +212,6 @@ export const useChatLogic = () => {
         await saveMessageToConversation(conversationId, assistantMessage);
         throw error;
       }
-
       if (!data) {
         console.error('【AI错误】Edge Function 响应为空');
         const assistantMessage: Message = { role: 'assistant' as const, content: '抱歉，AI服务暂时不可用，请稍后再试。' };
@@ -192,12 +219,9 @@ export const useChatLogic = () => {
         await saveMessageToConversation(conversationId, assistantMessage);
         return;
       }
-      
       const { reply, is_complete, collected_info, newly_collected_info, task_ready, intent } = data;
-
       console.log('【AI调试】AI回复:', reply);
       console.log('【AI调试】任务状态:', { is_complete, task_ready, intent });
-
       if (reply) {
         const assistantMessage: Message = { role: 'assistant' as const, content: reply };
         addMessage(assistantMessage);
@@ -207,7 +231,6 @@ export const useChatLogic = () => {
         addMessage(assistantMessage);
         await saveMessageToConversation(conversationId, assistantMessage);
       }
-
       let newCollectedInfo = { ...collectedInfo };
       if (newly_collected_info) {
         newCollectedInfo = { ...newCollectedInfo, ...newly_collected_info };
@@ -216,7 +239,6 @@ export const useChatLogic = () => {
         newCollectedInfo = { ...collected_info };
       }
       setCollectedInfo(newCollectedInfo);
-
       if (conversationId && Object.keys(newCollectedInfo).length > 0) {
         await supabase
           .from('conversations')
@@ -224,28 +246,40 @@ export const useChatLogic = () => {
           .eq('id', conversationId)
           .eq('user_id', user.id);
       }
-
       if (task_ready) {
         setCurrentIntent(intent);
         setIsCanvasOpen(true);
       }
 
+      // 更新对话详情
+      if (conversationId && (collected_info || newly_collected_info)) {
+        const updatedInfo = { 
+          ...collectedInfo, 
+          ...(newly_collected_info || {}), 
+          ...(collected_info || {}) 
+        };
+        await updateConversationDetails(conversationId, updatedInfo);
+      }
     } catch(err) {
-      console.error("【AI调试】调用AI聊天函数时出错:", err);
-      let errorMessage = "抱歉，遇到技术问题，AI服务暂无法使用。";
+      console.error('【AI调试】调用AI聊天函数时出错:', err);
+      let errorMessage = '抱歉，遇到技术问题，AI服务暂无法使用。';
       if (err instanceof Error) {
         errorMessage += `（${err.message}）`;
       }
       const assistantMessage: Message = { role: 'assistant' as const, content: errorMessage };
       addMessage(assistantMessage);
       if (conversationId) {
-        await saveMessageToConversation(conversationId, assistantMessage);
+        try {
+          await saveMessageToConversation(conversationId, assistantMessage);
+        } catch (e) {
+          console.error('【AI调试】保存错误消息到数据库时出错:', e);
+        }
       }
     } finally {
       setIsLoading(false);
       console.log('【AI调试】消息发送流程完成');
     }
-  };
+  }, [user, currentConversationId, messages, collectedInfo, openAuthDialog, addMessage, createNewConversation, updateConversationTitle, saveMessageToConversation, setMessages, setIsLoading, setCollectedInfo, setCurrentIntent, setIsCanvasOpen, supabase]);
 
   useEffect(() => {
     if (user && !currentConversationId) {
@@ -330,69 +364,154 @@ export const useChatLogic = () => {
   const handleGenerateLessonPlan = async () => {
     setIsLoading(true);
     
-    const subject = profile?.subject || '通用';
-    const textbook_edition = profile?.textbook_edition || '通用版本';
-    const teaching_object = profile?.teaching_object || '学生';
-    const long_term_goal = profile?.long_term_goal || '提升学科素养';
-
     try {
-      const { data: functionData, error: functionError } = await supabase.functions.invoke('generate-lesson-plan', {
-          body: { 
-            topic: collectedInfo.topic,
-            grade: collectedInfo.grade,
-            objective: collectedInfo.objective,
-            subject,
-            textbook_edition,
-            teaching_object,
-            long_term_goal
-          },
+      const { data: details } = await supabase
+        .from('conversation_details')
+        .select('*')
+        .eq('conversation_id', currentConversationId)
+        .single();
+
+      if (!details) {
+        throw new Error('未找到对话详情');
+      }
+
+      const response = await fetch('/api/generate-lesson-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topic: details.current_topic,
+          grade: details.teaching_object,
+          objective: details.current_objective,
+          subject: details.subject,
+          textbook_edition: details.textbook_edition,
+          teaching_object: details.teaching_object,
+          long_term_goal: details.long_term_goal
+        })
       });
 
-      if (functionError) throw functionError;
+      if (!response.ok) {
+        throw new Error('生成教案失败');
+      }
 
-      const { lessonPlan } = functionData;
+      const { lessonPlan, teachingResources, visualElements } = await response.json();
 
-      const { data: resourceData, error: resourceError } = await supabase
-          .from('teaching_resources')
-          .insert({
-              user_id: user!.id,
-              title: `《${collectedInfo.topic}》教案设计`,
-              content: lessonPlan,
-              resource_type: 'lesson_plan',
-              conversation_id: currentConversationId,
-              metadata: {
-                ...collectedInfo,
-                subject,
-                textbook_edition,
-                teaching_object,
-                long_term_goal
-              } as any,
-          })
-          .select()
-          .single();
-      
-      if (resourceError) throw resourceError;
-      
-      setIsCanvasOpen(false);
-      resetConversation();
-      const successMessage: Message = {
-          role: 'assistant' as const,
-          content: `针对主题"${collectedInfo.topic}"为${collectedInfo.grade}学生设计的专业教案已生成！这份教案严格按照11个标准结构设计，体现了以学生为中心的教学理念。`,
-      };
-      addMessage({
-          ...successMessage,
-          resource: resourceData
-      });
+      // 保存教案内容
+      const { data: savedResource } = await supabase
+        .from('teaching_resources')
+        .insert({
+          user_id: user?.id,
+          conversation_id: currentConversationId,
+          type: 'lesson_plan',
+          content: lessonPlan,
+          metadata: {
+            teachingResources,
+            visualElements
+          }
+        })
+        .select()
+        .single();
 
-    } catch(error) {
-        console.error('Error generating or saving lesson plan:', error);
-        const errorMessage: Message = {
-            role: 'assistant' as const,
-            content: '抱歉，处理教案时出错了，请稍后再试。'
-        };
-        addMessage(errorMessage);
-    } finally {
+      if (!savedResource) {
+        throw new Error('保存教案失败');
+      }
+
+      // 为每个教学资源生成图片
+      if (teachingResources?.length > 0) {
+        for (const resource of teachingResources) {
+          if (resource.imagePrompt) {
+            try {
+              const imageResponse = await fetch('/api/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  prompt: resource.imagePrompt,
+                  context: {
+                    teaching_object: details.teaching_object,
+                    subject: details.subject,
+                    topic: details.current_topic
+                  }
+                })
+              });
+
+              if (imageResponse.ok) {
+                const { imageUrl } = await imageResponse.json();
+                // 保存生成的图片URL
+                await supabase
+                  .from('teaching_resources')
+                  .insert({
+                    user_id: user?.id,
+                    conversation_id: currentConversationId,
+                    type: 'image',
+                    content: imageUrl,
+                    metadata: {
+                      description: resource.description,
+                      type: resource.type,
+                      parent_resource_id: savedResource.id
+                    }
+                  });
+              }
+            } catch (error) {
+              console.error('生成图片失败:', error);
+            }
+          }
+        }
+      }
+
+      // 为每个视觉元素生成图片
+      if (visualElements?.length > 0) {
+        for (const element of visualElements) {
+          try {
+            const imageResponse = await fetch('/api/generate-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                prompt: element.description,
+                context: {
+                  teaching_object: details.teaching_object,
+                  subject: details.subject,
+                  topic: details.current_topic,
+                  usage_context: element.context
+                }
+              })
+            });
+
+            if (imageResponse.ok) {
+              const { imageUrl } = await imageResponse.json();
+              // 保存生成的图片URL
+              await supabase
+                .from('teaching_resources')
+                .insert({
+                  user_id: user?.id,
+                  conversation_id: currentConversationId,
+                  type: element.type,
+                  content: imageUrl,
+                  metadata: {
+                    description: element.description,
+                    context: element.context,
+                    parent_resource_id: savedResource.id
+                  }
+                });
+            }
+          } catch (error) {
+            console.error('生成视觉元素失败:', error);
+          }
+        }
+      }
+
       setIsLoading(false);
+      toast({
+        title: '教案生成成功',
+        description: '已自动为您生成相关的教学图片资源'
+      });
+
+    } catch (error) {
+      console.error('生成教案失败:', error);
+      setIsLoading(false);
+      toast({
+        title: '生成教案失败',
+        description: error.message,
+        variant: 'destructive'
+      });
     }
   };
 
@@ -485,6 +604,11 @@ export const useChatLogic = () => {
     }
   };
 
+  const handleSend = () => {
+    sendMessage(input);
+    navigate(`/chat/${user?.id}`);
+  };
+
   return {
     messages,
     input,
@@ -502,5 +626,6 @@ export const useChatLogic = () => {
     sendMessage,
     resetToInitialState,
     currentConversationId,
+    createNewConversation,
   };
 };

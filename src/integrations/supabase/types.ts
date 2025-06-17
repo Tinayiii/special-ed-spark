@@ -182,6 +182,95 @@ export type Database = {
           },
         ]
       }
+      conversation_details: {
+        Row: {
+          id: string
+          user_id: string
+          conversation_id: string
+          subject: string | null
+          current_topic: string | null
+          long_term_goal: string | null
+          teaching_object: string | null
+          textbook_edition: string | null
+          current_objective: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          conversation_id: string
+          subject?: string | null
+          current_topic?: string | null
+          long_term_goal?: string | null
+          teaching_object?: string | null
+          textbook_edition?: string | null
+          current_objective?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          conversation_id?: string
+          subject?: string | null
+          current_topic?: string | null
+          long_term_goal?: string | null
+          teaching_object?: string | null
+          textbook_edition?: string | null
+          current_objective?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_details_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_details_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      resources: {
+        Row: {
+          id: string
+          user_id: string
+          conversation_id: string
+          type: string
+          content: string
+          metadata: any
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          conversation_id: string
+          type: string
+          content: string
+          metadata?: any
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          conversation_id?: string
+          type?: string
+          content?: string
+          metadata?: any
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +12,7 @@ interface AuthContextType {
     isAuthDialogOpen: boolean;
     setIsAuthDialogOpen: (isOpen: boolean) => void;
     refreshProfile: () => void;
+    logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,6 +78,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     };
 
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        // 可选：window.location.href = '/';
+    };
+
     const value = {
         user,
         session,
@@ -87,6 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthDialogOpen,
         setIsAuthDialogOpen,
         refreshProfile,
+        logout,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
